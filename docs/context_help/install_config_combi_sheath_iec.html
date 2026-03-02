@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Combined sheath/screen to IEC</title>
+</head>
+<body>
+<h1>Combined sheath/screen to IEC</h1>
+<p>Symbols:  N/A</p>
+<p>Combine metal sheath/screen to only one sheath/screen heat loss for each cable.</p>
+<p>
+    WARNING: IEC calculation not correctly implemented. The IEC method of calculating combined sheath resistance is
+    not correct and the thernal resistance between sheath/screens is ignored.
+</p><p>
+    For cables with more than one metal sheath/screen, all the metal sheath/screens are combined into one sheath/screen
+    and a single sheath/screen loss is calculated. Note: only one metal sheath is allowed, as eddy sheath losses
+    (lambda1'') can not be combined but tape screens and wire screens do not have any eddy sheath/screen losses so
+    multiple layers of tape and wire screens can be combined.
+</p><p>
+    According to IEC 60287-1-1:2023, the metal sheath/screens are combined. The method of calculating the combined
+    sheath/screen electrical resistance is specified, which is simplified for hand calculations with an average value of
+    thermal resistance temperature coefficient used. To calculate ratings to IEC 60287 ensure that this
+    combi_sheath_iec configuration setting is selected to use the method of combining the sheath/screen resistances
+    to IEC 60287.
+</p><p>
+    TB 880 Ed 1 recommends that sheath/screen loss for each metal sheath/screen is calculated. To use TB 880 the
+    recommended method set this combi_sheath_loss setting to False and the
+    <a href="install_config_multi_sheath_lambda.html">multi_sheath_lambda</a> to True.
+</p><p>
+    If this combi_sheath_lambda setting is False and the
+    <a href="install_config_multi_sheath_lambda.html">multi_sheath_lambda</a> setting is False, the sheath/screen losses
+    will be calculated as a combined metal/screen but with the metal sheath/screen resistance calculated with the thermal
+    resistance temperature coefficient of each sheath/screen used rather than an average.
+<p>
+    For further information (XHTML), see the <a href="../CableSystemDesign.xhtml#CombiSheathLambda">design manual</a>.
+</p>
+<p>
+    For further information (PDF), see the <a href="../CableSystemDesign.pdf#CombiSheathLambda">design manual</a>.
+</p>
+</body>
+</html>

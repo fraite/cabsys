@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vary carbon paper TR</title>
+</head>
+<body>
+<h1>Vary carbon paper TR</h1>
+<p>Symbols:  N/A</p>
+<p>Vary carbon/metallised paper thermal resistivity.</p>
+<p>
+    According to IEC 60287-2-1:2023 and Cigre TB 880 Ed 1, T1, the thermal resistance between the conductor and metal
+    sheath / screen, can be calculated for each layer. TB 880 E1 recommends that the thermal resistivity of the carbon
+    black paper or metallised paper is the same as the insulation layer. Setting the thermal resistivity of carbon black
+    and metallised papers to the same value as the insulation is in most cases is sensible but for PPL cables it is not
+    consistent to have the value of carbon / metallised paper to have different values of thermal resistivity from paper
+    oil filled cables as the carbon / metallised paper layers are the same for both cables. Additionally setting the
+    carbon / metallised paper layers to have the same thermal resistivity as the insulation makes any computer program
+    harder to implement.
+
+    Setting this configuration flag to True makes the calculation follow the TB 880 Ed1 recommendations and resistivity
+    of the carbon black / metallised tapes will be equal to the cable insulation.
+
+    Setting this configuration flag to False makes the calculation use the value of the carbon black/ metallised tapes
+    match the assigned values. For oil filled and mass impregnated cables this is set to the same thermal resistance
+    value as the insulation (5.0 K.m/W and 6.0 k.m/W respectively) but for PPL cables the thermal resistance value will
+    be the same as oil filled cables (5.0 K.m/W) as the carbon black / metallised papers are the same as oil filled
+    cables.
+</p>
+<p>
+    For further information see the <a href="../CableSystemDesign.xhtml#Vary_carbon_paper_TR">design manual</a>.
+</p>
+</body>
+</html>

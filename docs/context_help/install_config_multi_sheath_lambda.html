@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Multiple sheath/screen heat loss</title>
+</head>
+<body>
+<h1>Multiple sheath/screen heat loss</h1>
+<p>Symbols:  N/A</p>
+<p>Calculate sheath/screen heat loss for each metal sheath/screen.</p>
+<p>
+    For cables with more than one metal sheath/screen, calculate the sheath/screen loss for each metal sheath/screen.
+    Otherwise, all the metal sheath/screens are combined into one sheath/screen and a single sheath/screen loss is
+    calculated. Note: only one metal sheath is allowed, as eddy sheath losses (lambda1'') can not be split between
+    layers but tape screens and wire screens do not have any eddy sheath/screen losses so multiple layers of tape and
+    wire screens are possible.
+</p><p>
+    According to IEC 60287-1-1:2023, the metal sheath/screens are combined. To calculate ratings to
+    IEC 60287 ensure that this config setting is off and that the
+    <a href="install_config_combi_sheath_iec.html">combi_sheath_iec</a> configuration setting
+    is selected to use the method of combining the sheath/screen resistances to IEC 60287.
+</p><p>
+    TB 880 Ed 1 recommends that sheath/screen loss for each metal sheath/screen is calculated.
+    Setting this configuration flag to True and the
+    <a href="install_config_combi_sheath_iec.html">combi_sheath_iec</a> configuration setting to False
+    will then calculate the sheath/screen loss for each metal sheath/screen.
+</p>
+<p>
+    For further information (XHTML), see the <a href="../CableSystemDesign.xhtml#MultiSheathLambda">design manual</a>.
+</p>
+<p>
+    For further information (PDF), see the <a href="../CableSystemDesign.pdf#MultiSheathLambda">design manual</a>.
+</p>
+</body>
+</html>

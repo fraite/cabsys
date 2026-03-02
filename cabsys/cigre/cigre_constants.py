@@ -1,0 +1,6 @@
+VERSION = '0.1'
+
+TIME_STEP_CONSTANT = 'time step constant'
+TIME_STEP_USER_VARY = 'time step user vary'
+TIME_STEP_ELT_87 = 'time step to ELT 87 / 10'
+TIME_STEPS = [TIME_STEP_CONSTANT, TIME_STEP_USER_VARY, TIME_STEP_ELT_87]

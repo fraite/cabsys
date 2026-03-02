@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Non-metal screen isotherm</title>
+</head>
+<body>
+<h1>Non-metal screen isotherm</h1>
+<p>Symbols:  N/A</p>
+<p>Non-metal screens for trefoil touching cables are treated as an isotherm.</p>
+<p>
+    According to IEC 60287-2-1:2023 Section 4.2.4.3.4, for the external thermal resistance for trefoil touching single
+    core cables no modification to the thermal resistance of the insulation (T1) or serving (T3) is made. This appears
+    to be an error since IEC 60287-2-1:2023 Section 4.2.4.3.2 and 4.2.4.3.3 do make modifications to T1 and T3. Setting
+    non_metal_screen_isotherm to False makes calculations ignore IEC 60287 and make modification to T1 and T3 for
+    non-metal covered cables as if they were part metal covered cables.
+</p>
+<p>
+    For further information see the <a href="../CableSystemDesign.pdf#NonMetalScreenIsotherm">design manual</a>.
+</p>
+</body>
+</html>

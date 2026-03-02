@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rating Type</title>
+</head>
+<body>
+<h1>Rating Type</h1>
+<p>Symbols:  N/A</p>
+<p>The type of rating (for example: continuous).</p>
+<p>
+    Current rating calculations can be split into two main types of calculations, continuous current ratings and
+    transient current ratings. Continuous current ratings assume that the cable temperatures have all reached steady
+    state and the conductor currents will also be a steady state value. Transient calculations vary the conductor
+    current over time and may also vary the rating parameters (such as ambient temperature) over time too.</p>
+<p>
+    The transient ratings can be further subdivided so that three sub rating types can be defined:
+</p>
+<ul>
+    <li>Emergency rating: a current rating used during an emergency that allows the conductor temperature to be above the
+        normal maximum continuous conductor temperature. For an emergency rating, a pre-emergency steady state has been
+        achieved with a defined pre-emergency conductor current or defined pre-emergency temperatures. The cable
+        conductor current is then changed (generally raised) to a
+        constant value for a set time period (the emergency period). Normally the calculation calculates the maximum
+        permissible emergency current ratings, but alternatively the conductor temperature at the end of the emergency
+        period can be calculated.</li>
+    <li>Transient rating: conductor temperatures for a given conductor current load pattern (load curve) are
+        calculated, including the maximum conductor temperature during the load pattern. A preload prior to the load
+        curve can be defined. If the maximum conductor temperature is defined, the maximum magnitude of the load
+        pattern can be calculated.</li>
+    <li>Cyclic rating: conductor temperatures for a given conductor current load pattern (load curve) that repeats are
+        calculated, including the maximum temperature during the load pattern. If the maximum conductor temperature is
+        defined, the maximum magnitude of the load pattern can be calculated.</li>
+</ul>
+<p>
+    For further information on continuous current ratings, see <a href="../todo.html">Section 1.1.1</a> of the design
+    manual and on transient ratings, see <a href="../todo.html">Section 1.1.2</a> of the design manual.
+</p>
+</body>
+</html>

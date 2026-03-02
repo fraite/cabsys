@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Duct air accuracy and max iteration</title>
+</head>
+<body>
+<h1>Duct air accuracy and max iteration</h1>
+<p>Symbols:  N/A</p>
+<p>Mean duct air accuracy and maximum iteration.</p>
+<p>
+    In order to calculate T4' (the thermal resistance of the air in a duct) the equation in IEC 60287-2-1 Section
+    4.2.6.3 requires the mean duct air temperature, but it is not possible to calculate this without T4'. The solution
+    is to calculate T4' iteratively first assuming a mean duct air temperature (50 °C in the program). The iteration
+    continues until a specified duct air temperature does not change between each iteration. If the number of iterations
+    is greater than specified the program stops and raises an exception.
+</p>
+<p>
+    Note: each iteration result is shown in the logger.
+</p>
+<p>
+    For further information on negligible eddy current losses, see <a href="../todo.html">Section 1.1.1</a> of the
+    design manual and on transient ratings, see <a href="../todo.html">Section 1.1.2</a> of the design manual.
+</p>
+</body>
+</html>

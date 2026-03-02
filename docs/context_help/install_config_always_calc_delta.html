@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Always calculate delta</title>
+</head>
+<body>
+<h1>Always calculate delta</h1>
+<p>Symbols:  N/A</p>
+<p>For lead sheathed and small aluminium sheathed cables delta can be taken as zero.</p>
+<p>
+    According to IEC 60287-1-1:2023 Section 5.3.7.1, for eddy current losses of single core lead sheathed cables and
+    small aluminium sheathed cables the value of (beta_1*t_s)^4/(12x10^12) (called delta here) can be taken to be zero.
+    When this flag is set to True the simplification suggested by IEC to set the value to zero is ignored and the value
+    of delta is always calculated, which should be slightly more accurate.
+</p>
+</body>
+</html>

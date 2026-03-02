@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Single T1 thermal resistivity</title>
+</head>
+<body>
+<h1>Single T1 thermal resistivity</h1>
+<p>Symbols:  N/A</p>
+<p>Calculate T1 with a uniform thermal resistivity.</p>
+<p>
+    According to IEC 60287-2-1:2023, T1, the thermal resistance between the conductor and metal sheath / screen, is
+    calculated using a uniform thermal resistivity defined by the electrical insulation material. This does not take
+    account of the different thermal resistivity of other layers such as the semiconducting screens of water-blocking
+    layers.
+
+    TB 880 Ed 1 recommends that the resistance of each layer is calculated and IEC 60287-2-1:2023 does note that this is
+    a possible method to calculate T1.
+
+    Setting this configuration flag to False will calculate the thermal resistance of each layer and sum the values to
+    get a total T1.
+</p>
+<p>
+    For further information, see the <a href="../CableSystemDesign.xhtml#Uniform_T1_resistivity">design manual</a>.
+</p>
+<p>
+    For further information, see the <a href="../CableSystemDesign.pdf#3.2.1">design manual</a>.
+</p>
+</body>
+</html>
