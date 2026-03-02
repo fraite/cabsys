@@ -1,6 +1,6 @@
 # CabSys
 
-A power cable system design program, that includes a cable design and current rating function.
+An experimental power cable system design program, that includes a cable design and current rating function.
 
 CabSys is unfinished and being developed. This version (CabSys) includes files from PyCharm and UV.
 
