@@ -1766,6 +1766,8 @@ class ProjectViewer:
                     self.status_label.config(text='Calculation failed')
                     self.install_results_frame.new_result(self.result)
                     self.install_results_frame2.new_result(self.result)
+                    self.cond_thetas_list = []
+                    self.amp_list = []
                     self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
                                                  amp_list=self.amp_list)
                 else:
