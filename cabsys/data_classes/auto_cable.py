@@ -293,7 +293,7 @@ class AutoCable(Cable):
         if not cable_quantity_is_fixed(self.conductor.size):
             if self.nominal_volts.value > 150:
                 if self.number_cores.value == cc.SINGLE_CORE:
-                    self.conductor.size.set_value(iec.IEC_2500MM2_2005, unit='', source=CABLE_AUTO_DESIGN)
+                    self.conductor.size.set_value(iec.IEC_2500MM2, unit='', source=CABLE_AUTO_DESIGN)
                 else:
                     self.conductor.size.set_value(iec.IEC_1000MM2, unit='', source=CABLE_AUTO_DESIGN)
             elif self.nominal_volts.value > 72.5:

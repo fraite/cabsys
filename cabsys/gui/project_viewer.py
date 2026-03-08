@@ -101,6 +101,7 @@ class ProjectViewer:
         self.working_dir = os.getcwd()
         # self.solving_rating = False
         self.result: Optional[str] = 'no result'
+        self.result_error: bool = False
         """Contains the results of the current rating calculation in a single line"""
         self.cond_thetas_list = []
         """Contains the conductor temperature (°C) for each cable following a current rating calculation"""
@@ -1761,26 +1762,34 @@ class ProjectViewer:
                 self.dsf_state2_frame.columnconfigure(1, weight=1)
                 self.dsf_state2_frame.rowconfigure(1, weight=1)
                 self.dsf_notebook.add(self.dsf_state_frame, text='state')
-                self.status_label.config(text="Calculation successful")
-                if self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS:
-                    table_result = 'Circuit:  '
-                    for i_cct in range(len(self.cond_thetas_list)):
-                        table_result += f'  cct {i_cct: 2.0f} '
-                    table_result += '\n'
-                    table_result += 'θ_C (°C): '
-                    for i_cct in range(len(self.cond_thetas_list)):
-                        table_result += f'  {round(max(self.cond_thetas_list[i_cct]), 1): 3.2f} '
-                    table_result += '\n'
-                    table_result += 'I (A):   '
-                    for i_cct in range(len(self.cond_thetas_list)):
-                        table_result += f' {round(self.amp_list[i_cct], 1): 4.1f} '
-                    table_result += '\n'
+                if self.result_error:
+                    self.status_label.config(text='Calculation failed')
+                    self.install_results_frame.new_result(self.result)
+                    self.install_results_frame2.new_result(self.result)
+                    self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
+                                                 amp_list=self.amp_list)
                 else:
-                    table_result = self.result
-                self.install_results_frame.new_result(table_result)
-                self.install_results_frame2.new_result(table_result)
-                self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
-                                             amp_list=self.amp_list)
+                    self.status_label.config(text="Calculation successful")
+
+                    if self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS:
+                        table_result = 'Circuit:  '
+                        for i_cct in range(len(self.cond_thetas_list)):
+                            table_result += f'  cct {i_cct: 2.0f} '
+                        table_result += '\n'
+                        table_result += 'θ_C (°C): '
+                        for i_cct in range(len(self.cond_thetas_list)):
+                            table_result += f'  {round(max(self.cond_thetas_list[i_cct]), 1): 3.2f} '
+                        table_result += '\n'
+                        table_result += 'I (A):   '
+                        for i_cct in range(len(self.cond_thetas_list)):
+                            table_result += f' {round(self.amp_list[i_cct], 1): 4.1f} '
+                        table_result += '\n'
+                    else:
+                        table_result = self.result
+                    self.install_results_frame.new_result(table_result)
+                    self.install_results_frame2.new_result(table_result)
+                    self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
+                                                 amp_list=self.amp_list)
 
             finally:
 
@@ -1817,10 +1826,12 @@ class ProjectViewer:
                                                        self.displayed_object.selected_scenario.value,
                                                        state=self.install_state, log=log)
 
-        # TODO: improve format of self.result
-        # TODO: add short short circuit ratings
+            # TODO: improve format of self.result
+            # TODO: add short short circuit ratings
+            self.result_error = False
 
         except exceptions as solver_exception:
+            self.result_error = True
             self.result = f'{type(solver_exception).__name__}: {solver_exception.args[0]}'
             # self.result = None
             log.close_sections('Exception raised', f'{type(solver_exception).__name__}', '', solver_exception.args[0])
@@ -1830,6 +1841,7 @@ class ProjectViewer:
         finally:
             if self.result is None:
                 self.result = 'Calculation failed, probably due to an exception'
+                self.result_error = True
             if self.after_job is not None:
                 self.root.after_cancel(self.after_job)
             self.install_state.progress = ''
