@@ -8,7 +8,7 @@ from cabsys.cigre import cigre_constants as cigre_consts
 from cabsys.iec import iec_constants as iec
 from cabsys.quantity.quantity_store import QFloat, QStr, QBool, QInt, QuantityBase
 from cabsys.data_classes.auto_cable import AutoCable, CABLE_AUTO_DESIGN, Cable, CABLE_CLASSES
-from cabsys.data_classes.auto_current_curve import CurrentCurve, AutoCurrentCurve, CURRENT_CURVE_CLASSES
+from cabsys.data_classes.auto_current_curve import AutoCurrentCurve, CURRENT_CURVE_CLASSES
 from cabsys.data_classes.scenario import Scenario, ScenarioParametersBuried, ScenarioParametersAir
 from cabsys.data_classes.scenario import ScenarioParametersTunnel
 import cabsys.data_classes.auto_scenario as auto_scenario
@@ -855,13 +855,6 @@ class AutoInstall(Install):
         if install_q_is_not_fixed(self.config.max_log_count):
             self.config.max_log_count.set_value(500000, unit='', source=INSTALL_AUTO_DESIGN)
 
-        if install_q_is_not_fixed(self.config.log_level):
-            if (self.rating_type.value == iec.RATING_CONTINUOUS and self.config.memorise.value and
-                    (self.auto_number_sets.value is not None and self.auto_number_sets.value < 5)):
-                self.config.log_level.set_value(30, unit='', source=INSTALL_AUTO_DESIGN)
-            else:
-                self.config.log_level.set_value(5, unit='', source=INSTALL_AUTO_DESIGN)
-
         if install_q_is_not_fixed(self.config.log_iterate) and self._auto_design:
             self.config.log_iterate.set_value(False, unit='', source=INSTALL_AUTO_DESIGN)
 
@@ -1155,6 +1148,13 @@ class AutoInstall(Install):
                 design_status = str(e)
                 self.set_auto_design_status(design_status)
                 return
+
+        if install_q_is_not_fixed(self.config.log_level):
+            if (self.rating_type.value == iec.RATING_CONTINUOUS and self.config.memorise.value and
+                    (self.auto_number_sets.value is not None and self.auto_number_sets.value < 5)):
+                self.config.log_level.set_value(30, unit='', source=INSTALL_AUTO_DESIGN)
+            else:
+                self.config.log_level.set_value(5, unit='', source=INSTALL_AUTO_DESIGN)
 
         # for cable_set in self.cable_sets:
         #     if install_q_is_not_fixed(cable_set.duct_filling_rho_t):
