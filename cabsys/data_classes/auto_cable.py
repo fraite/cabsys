@@ -204,6 +204,10 @@ class AutoCable(Cable):
                 self.serving.material.set_value(None, unit='', source=CABLE_AUTO_DESIGN)
             if not cable_quantity_is_fixed(self.serving.dia):
                 self.serving.dia.set_value(None, unit='mm', source=CABLE_AUTO_DESIGN)
+            if not cable_quantity_is_fixed(self.serving.semicon_mat):
+                self.serving.semicon_mat.set_value(None, unit='', source=CABLE_AUTO_DESIGN)
+            if not cable_quantity_is_fixed(self.serving.semicon_dia):
+                self.serving.semicon_dia.set_value(None, unit='mm', source=CABLE_AUTO_DESIGN)
 
             if not cable_quantity_is_fixed(self.max_cond_temp):
                 self.max_cond_temp.set_value(None, unit='°C', source=CABLE_AUTO_DESIGN)
@@ -479,6 +483,7 @@ class AutoCable(Cable):
             if not cable_quantity_is_fixed(self.core.max_cond_stress):
                 if (not cable_quantity_is_fixed(self.core.insu_dia) and
                         not cable_quantity_is_fixed(self.core.nom_insu_rt)):
+                    # TODO: use a look up function for insulation table otherwise non-standard volts will cause errors
                     max_stress = float(cc.INSULATION_TABLE[self.core.insulation_material.value]
                                        [self.design_volts.value][1])
                     self.core.max_cond_stress.set_value(max_stress, unit='kV/mm', source=CABLE_AUTO_DESIGN)
@@ -795,6 +800,19 @@ class AutoCable(Cable):
             self.serving.dia.set_value(round(prev_dia + 2 * serving_rt, 1), unit='mm', source=CABLE_AUTO_DESIGN)
         if not cable_quantity_is_fixed(self.serving.t3):
             self.serving.t3.set_value(None, unit='mm', source=CABLE_AUTO_DESIGN)
+        prev_dia = self.serving.dia.value
+
+        # Semi-con serving design
+        if not cable_quantity_is_fixed(self.serving.semicon_mat):
+            if self.design_volts.value > 36.0:
+                self.serving.semicon_mat.set_value(iec.SERVING_SEMI_CON_PE, unit='', source=CABLE_AUTO_DESIGN)
+            else:
+                self.serving.semicon_mat.set_value(iec.NONE, unit='', source=CABLE_AUTO_DESIGN)
+        if not cable_quantity_is_fixed(self.serving.semicon_dia):
+            if self.serving.semicon_mat.value == iec.SERVING_SEMI_CON_PE:
+                self.serving.semicon_dia.set_value(round(prev_dia + 2, 1), unit='mm', source=CABLE_AUTO_DESIGN)
+            else:
+                self.serving.semicon_dia.set_value(round(prev_dia, 1), unit='mm', source=CABLE_AUTO_DESIGN)
 
         return
 

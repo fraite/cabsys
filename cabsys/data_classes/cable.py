@@ -369,9 +369,13 @@ class Serving(QuantityStore):
 
     material: QStr
     dia: QFloat
+    semicon_mat: QStr
+    semicon_dia: QFloat
     t3: QFloat
     rho_t: QFloat
     v_s_heat: QFloat
+    semicon_rho_t: QFloat
+    semicon_v_s_heat: QFloat
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -381,12 +385,22 @@ class Serving(QuantityStore):
                              options=serving_list, symbol='serving material')
         self.dia = QFloat(unit='mm', description='serving diameter', source=None, options=None,
                           symbol='d_serving')
+        serving_semi_con_list = list(iec.SERVING_SEMI_CON_LIST)
+        serving_semi_con_list.append(iec.NONE)
+        self.semicon_mat = QStr(unit='', description='serving semi conding material', source=None,
+                                options=serving_semi_con_list, symbol='serving_semicon_mat')
+        self.semicon_dia = QFloat(unit='mm', description='serving semi-conducting diameter', source=None, options=None,
+                                  symbol='d_serving_semicon')
         self.t3 = QFloat(unit='mm', description='thickness of serving',
                          source=None, options=None, symbol='t_3')
         self.rho_t = QFloat(unit='K.m/W', description='thermal resistivity of serving material',
                             source=None, options=None, symbol='ρ_T (serving)')
         self.v_s_heat = QFloat(None, unit='J/m³.K', description='serving volumetric specific heat',
                                source=None, options=None, symbol="serving_v_s_heat")
+        self.semicon_rho_t = QFloat(unit='K.m/W', description='thermal resistivity of serving semicon material',
+                            source=None, options=None, symbol='ρ_T (serving semicon)')
+        self.semicon_v_s_heat = QFloat(None, unit='J/m³.K', description='serving semicon volumetric specific heat',
+                               source=None, options=None, symbol="serving_semicon_v_s_heat")
         super().post_init(**kwargs)
 
 
@@ -524,9 +538,18 @@ class Cable(QuantityStore):
         if log is not None:
             log.start_section('cable external dia', 'cable class function')
 
+        if self.serving.semicon_mat.value is None:
+            raise Exception('calculating cable outer diameter but serving semicon material is None')
+        if self.serving.semicon_mat.get_value(unit='', log=log) != iec.NONE:
+            serving_semicon_dia = self.serving.semicon_dia.get_value(unit='mm', log=log)
+            if log is not None:
+                log.end_section('cable external dia', serving_semicon_dia, 'mm', 'cable class function')
+            if serving_semicon_dia is None:
+                raise Exception('calculating cable outer diameter but serving semicon diameter is None')
+            return serving_semicon_dia
+
         if self.serving.material.value is None:
             raise Exception('calculating cable outer diameter but serving material is None')
-
         if self.serving.material.get_value(unit='', log=log) != iec.NONE:
             serving_dia = self.serving.dia.get_value(unit='mm', log=log)
             if log is not None:
@@ -537,7 +560,6 @@ class Cable(QuantityStore):
 
         if self.sheath.material.value is None:
             raise Exception('calculating cable outer diameter but no serving and sheath material is None')
-
         if (self.serving.material.get_value(unit='', log=log) == iec.NONE and
                 self.sheath.material.get_value(unit='', log=log) != iec.NONE):
             if not self.separate_sheath.value:

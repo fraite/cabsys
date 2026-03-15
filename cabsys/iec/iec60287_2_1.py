@@ -150,7 +150,6 @@ def calc_t1_4_1_2_1(install: AutoInstall, cable_set_no: int, cable_no: int,
             t_1 = rho_1 / (2 * math.pi) * math.log(1.0 + 2 * t1_thickness / d_c)
 
     else:
-
         t_1_q = calc_t1_4_1_2_1alt(install, cable_set_no, cable_no, log=log)
         t_1 = t_1_q.get_value(unit='K.m/W')
         source = t_1_q.source
@@ -452,13 +451,13 @@ def calc_t2(cable: Cable, state: CableState = None, log: Log = None) -> QFloat:
 @LogSection('t_3')
 def calc_t3_thermal_thickness(install: AutoInstall, cable_set_no: int, cable_no: int,
                               log: Log = None) -> QFloat:
-    """Calculate t_3, thickness of thermal resistance of insulation (between conductor and sheath)
+    """Calculate t_3, thickness of thermal resistance of serving
 
     :param install: cable installation
     :param cable_set_no: cable set number in install
     :param cable_no:  cable number in cable_set
     :param log: logger used to store results
-    :return: thickness cable thermal insulation (mm)
+    :return: thickness of cable serving (mm)
     """
 
     cable_set = install.cable_sets[cable_set_no]
@@ -469,7 +468,7 @@ def calc_t3_thermal_thickness(install: AutoInstall, cable_set_no: int, cable_no:
     elif install.config.iec_60287_2_1_ver.value in [iec.IEC60287_2_1_ED2, iec.CIGRE_TB880_2022]:
         source = 'IEC 60287-2-1 ED2 Section 4.1.4.1'
     else:
-        raise IEC60287Exception(f'trying to calculate t3(IEC 60287-2-1 ED3 Section 4.1.4.2) but'
+        raise IEC60287Exception(f'trying to calculate t3(IEC 60287-2-1 ED3 Section 4.1.5.1) but'
                                 f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
                                 f' not recognised')
 
@@ -520,7 +519,8 @@ def calc_t3(install: AutoInstall, cable_set_no: int, cable_no: int,
                                 f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
                                 f' not recognised')
 
-    if cable.serving.material.get_value(unit='', log=log) == iec.NONE:
+    if (cable.serving.material.get_value(unit='', log=log) == iec.NONE and
+            cable.serving.semicon_material.get_value(unit='', log=log) == iec.NONE):
         t_3 = 0.0
     elif number_cores == iec.SINGLE_CORE or number_cores == iec.CONCENTRIC:
         t_3 = calc_t3_4_1_5_1(install, cable_set_no, cable_no, log=log).value
@@ -561,29 +561,34 @@ def calc_t3_4_1_5_1(install: AutoInstall, cable_set_no: int, cable_no: int,
     cable_set = install.cable_sets[cable_set_no]
     cable = cable_set.placed_cables[cable_no].cable
 
-    if install.config.iec_60287_2_1_ver.value in [None, iec.IEC60287_2_1_ED3, iec.IEC60287_2_1_ED3_STRICT]:
-        source = 'IEC 60287-2-1 ED3 Section 4.1.5'
-    elif install.config.iec_60287_2_1_ver.value in [iec.IEC60287_2_1_ED2, iec.CIGRE_TB880_2022]:
-        source = 'IEC 60287-2-1 ED2 Section 4.1.4'
+    if install.config.single_t3_rho.value:
+        if install.config.iec_60287_2_1_ver.value in [None, iec.IEC60287_2_1_ED3, iec.IEC60287_2_1_ED3_STRICT]:
+            source = 'IEC 60287-2-1 ED3 Section 4.1.5'
+        elif install.config.iec_60287_2_1_ver.value in [iec.IEC60287_2_1_ED2, iec.CIGRE_TB880_2022]:
+            source = 'IEC 60287-2-1 ED2 Section 4.1.4'
+        else:
+            raise IEC60287Exception(f'trying to calculate T3 (IEC 60287-2-1 ED3 Section 4.1.5) but'
+                                    f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
+                                    f' not recognised')
+
+        t3_thickness = iec60287support.get_q_parameter(cable.serving.t3, log=log)
+        if t3_thickness is None:
+            t3_thickness = calc_t3_thermal_thickness(install, cable_set_no, cable_no, log=log).value
+        rho_t = iec60287support.get_q_parameter(cable.serving.rho_t, log=log)
+        if rho_t is None:
+            rho_t = find_serving_rho_t(cable, log=log).value
+
+        ds = iec60287support.calc_sheath_screen_diameter(cable, log=log).value
+        if cable.armour.get_value(unit='', log=log) == iec.NONE:
+            d_a = ds
+        else:
+            raise IEC60287Exception(f'Calculate T3: armour not implemented yet. {cable.armour} specified')
+
+        t_3 = rho_t / (2 * math.pi) * math.log(1.0 + 2 * t3_thickness / d_a)
     else:
-        raise IEC60287Exception(f'trying to calculate T3 (IEC 60287-2-1 ED3 Section 4.1.5) but'
-                                f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
-                                f' not recognised')
-
-    t3_thickness = iec60287support.get_q_parameter(cable.serving.t3, log=log)
-    if t3_thickness is None:
-        t3_thickness = calc_t3_thermal_thickness(install, cable_set_no, cable_no, log=log).value
-    rho_t = iec60287support.get_q_parameter(cable.serving.rho_t, log=log)
-    if rho_t is None:
-        rho_t = find_serving_rho_t(cable, log=log).value
-
-    ds = iec60287support.calc_sheath_screen_diameter(cable, log=log).value
-    if cable.armour.get_value(unit='', log=log) == iec.NONE:
-        d_a = ds
-    else:
-        raise IEC60287Exception(f'Calculate T3: armour not implemented yet. {cable.armour} specified')
-
-    t_3 = rho_t / (2 * math.pi) * math.log(1.0 + 2 * t3_thickness / d_a)
+        t_3_q = calc_t3_4_1_4_1alt(install, cable_set_no, cable_no, log=log)
+        t_3 = t_3_q.get_value(unit='K.m/W')
+        source = t_3_q.source
 
     coverage = iec60287support.calc_metal_coverage(cable, log=log).value
     strict_iec = install.config.non_metal_screen_isotherm.get_value(unit='', log=log)
@@ -600,7 +605,63 @@ def calc_t3_4_1_5_1(install: AutoInstall, cable_set_no: int, cable_no: int,
                                         ' assuming IEC 60287-2-1 Ed 3 4.2.4.4 incorrect')
 
     return QFloat(t_3, 'K.m/W', f'{source}, single core cable thermal resistance of serving',
-                  description='single core cable thermal resistance of insulation', symbol='T_3')
+                  description='single core cable thermal resistance of serving', symbol='T_3')
+
+
+@LogSection('T_3 single core non-uniform rho3')
+def calc_t3_4_1_4_1alt(install: AutoInstall, cable_set_no: int, cable_no: int,
+                       log: Log = None) -> QFloat:
+    """Calculate T_3, thermal resistance of single core cable serving alternative method
+
+    IEC 60287-2-1 Section 4.1.5.1 alternative method with multiple thermal resistivity
+
+    :param install: cable installation
+    :param cable_set_no: cable set number in install
+    :param cable_no:  cable number in cable_set
+    :param log: logger used to store results
+    :return: thermal resistance of the cable serving (k.m/W)
+    """
+
+    cable_set = install.cable_sets[cable_set_no]
+    cable = cable_set.placed_cables[cable_no].cable
+
+    if install.config.iec_60287_2_1_ver.value in [None, iec.IEC60287_2_1_ED3, iec.IEC60287_2_1_ED3_STRICT]:
+        source = 'IEC 60287-2-1 ED3 Section 4.1.5 alt'
+    elif install.config.iec_60287_2_1_ver.value in [iec.IEC60287_2_1_ED2, iec.CIGRE_TB880_2022]:
+        source = 'IEC 60287-2-1 ED2 Section 4.1.4 alt'
+    else:
+        raise IEC60287Exception(f'trying to calculate T3 (IEC 60287-2-1 ED3 Section 4.1.5) but'
+                                f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
+                                f' not recognised')
+
+    rho_t = iec60287support.get_q_parameter(cable.serving.rho_t, log=log)
+    if rho_t is None:
+        rho_t = find_serving_rho_t(cable, log=log).value
+
+    ds = iec60287support.calc_sheath_screen_diameter(cable, log=log).value
+    if cable.armour.get_value(unit='', log=log) == iec.NONE:
+        d_a = ds
+    else:
+        raise IEC60287Exception(f'Calculate T3: armour not implemented yet. {cable.armour} specified')
+
+    d_serv = cable.serving.dia.get_value(unit='mm', log=log)
+    if d_serv is None:
+        raise IEC60287Exception('trying to calculate T3 but serving diameter is None')
+    t_3_serv = rho_t / (2 * math.pi) * math.log(d_serv / d_a)
+
+    rho_t_semicon = iec60287support.get_q_parameter(cable.serving.semicon_rho_t, log=log)
+    if rho_t_semicon is None:
+        rho_t_semicon = find_serving_semicon_rho_t(cable, log=log).value
+
+    d_semi = cable.serving.semicon_dia.get_value(unit='mm', log=log)
+    if d_semi is None:
+        raise IEC60287Exception('trying to calculate T3 but serving semicon diameter is None')
+    t_3_semi = rho_t_semicon / (2 * math.pi) * math.log(d_semi / d_serv)
+
+    t_3 = t_3_serv + t_3_semi
+
+    return QFloat(t_3, 'K.m/W', f'{source}',
+                  description='single core cable thermal resistance of serving', symbol='T_3')
 
 
 @UseState('T_4', level=cabsys.data_classes.state.CABLE)
@@ -1806,7 +1867,9 @@ SERVING_RESISTIVITY = {iec.SERVING_JUTE:          [(9999.1, 6.0)],
                        iec.SERVING_PVC:           [(35.1, 5.0),
                                                    (9999.1, 6.0)],
                        iec.SERVING_PVC_CAS:       [(9999.1, 6.0)],
-                       iec.SERVING_PE:            [(9999.1, 3.5)]}
+                       iec.SERVING_PE:            [(9999.1, 3.5)],
+                       iec.SERVING_SEMI_CON_PE:   [(9999.1, 2.5)],
+                       iec.SERVING_GRAPHITE:      [(9999.1, 2.5)]}
 
 
 @LogSection("ρ_T serving")
@@ -1836,7 +1899,31 @@ def find_serving_rho_t(cable: Cable, log: Log = None) -> QFloat:
         raise IEC60287Exception(f'rho_t not found for {serving_mat} with design voltage {volts} V.')
 
     return QFloat(rho_t, 'K.m/W', 'IEC 60287-2-1 Table 1',
-                  description='insulation thermal resistivity', symbol="rho_t serving")
+                  description='serving thermal resistivity', symbol="rho_t serving")
+
+
+@LogSection("ρ_T serving semicon")
+def find_serving_semicon_rho_t(cable: Cable, log: Log = None) -> QFloat:
+    """Get the serving semicon thermal resistivity from IEC 60287-2-1 Table 1
+
+    :param cable: the cable with the insulation
+    :param log: logger used to store results
+    :return: serving thermal resistivity (K.m/W)
+    """
+
+    rho_t = None
+    serving_mat = cable.serving.semicon_mat.get_value(unit='', log=log)
+    volts = cable.design_volts.get_value(unit='kV', log=log)
+    rows = SERVING_RESISTIVITY[serving_mat]
+    for row in rows:
+        if volts < row[0]:
+            rho_t = row[1]
+            break
+    if rho_t is None:
+        raise IEC60287Exception(f'rho_t not found for {serving_mat} with design voltage {volts} V.')
+
+    return QFloat(rho_t, 'K.m/W', 'IEC 60287-2-1 Table 1',
+                  description='serving semicon thermal resistivity', symbol="rho_t serving")
 
 
 # IEC 60287-1-1 Table 1 Thermal Resistivity

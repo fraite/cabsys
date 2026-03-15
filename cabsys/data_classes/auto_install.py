@@ -751,6 +751,8 @@ class AutoInstall(Install):
                 self.config.always_calc_delta.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
             if install_q_is_not_fixed(self.config.single_t1_rho):
                 self.config.single_t1_rho.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
+            if install_q_is_not_fixed(self.config.single_t3_rho):
+                self.config.single_t3_rho.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
 
             if install_q_is_not_fixed(self.kind):
                 self.kind.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
@@ -937,6 +939,12 @@ class AutoInstall(Install):
                 self.config.single_t1_rho.set_value(False, unit='', source=INSTALL_AUTO_DESIGN)
             else:
                 self.config.single_t1_rho.set_value(True, unit='', source=INSTALL_AUTO_DESIGN)
+
+        if install_q_is_not_fixed(self.config.single_t3_rho):
+            if self.config.iec_60287_2_1_ver.value == iec.CIGRE_TB880_2022:
+                self.config.single_t3_rho.set_value(False, unit='', source=INSTALL_AUTO_DESIGN)
+            else:
+                self.config.single_t3_rho.set_value(True, unit='', source=INSTALL_AUTO_DESIGN)
 
         if install_q_is_not_fixed(self.config.vary_carbon_paper_tr):
             if self.config.iec_60287_2_1_ver.value == iec.CIGRE_TB880_2022:

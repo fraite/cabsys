@@ -692,6 +692,21 @@ class DetailsFrame(tkinter.Frame):
         self.serving_dia_entry.grid(column=5, row=19, sticky="W")
         self.serving_dia_entry.config(width=10)
 
+        # serving semiconducting layer
+        self.ttk_label_serving_sc = ttk.Label(self)
+        self.ttk_label_serving_sc.grid(column=0, row=20, sticky="W")
+        self.ttk_label_serving_sc.config(width=0, anchor="e", text="semicon layer", underline=0)
+        # material (Combobox)
+        self.serving_material_sc_combobox = ComboboxString(self, self.cable.serving.semicon_mat, is_cable_auto_design)
+        self.serving_material_sc_combobox.grid(column=1)
+        self.serving_material_sc_combobox.grid(row=20)
+        self.serving_material_sc_combobox.grid(sticky="W")
+        self.serving_material_sc_combobox.config(width=25, state="readonly")
+        # diameter (Entry box)
+        self.serving_dia_sc_entry = EntryInt(self, self.cable.serving.semicon_dia, is_cable_auto_design)
+        self.serving_dia_sc_entry.grid(column=5, row=20, sticky="W")
+        self.serving_dia_sc_entry.config(width=10)
+
     def update_frame(self):
         if ((self.cable.core.insulation_material.get_value() == iec.INS_PAPER_SCOF or
                 self.cable.core.insulation_material.get_value() is None) and
@@ -811,6 +826,8 @@ class DetailsFrame(tkinter.Frame):
         self.over_tape_screen_material_combobox.update_combobox()
         self.serving_material_combobox.update_combobox()
         self.serving_dia_entry.update_entry()
+        self.serving_material_sc_combobox.update_combobox()
+        self.serving_dia_sc_entry.update_entry()
 
     def q_change(self, _event):
         self.event_generate("<<Q_change>>")

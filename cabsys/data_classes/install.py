@@ -671,7 +671,12 @@ class InstallConfig(QuantityStore):
         self.single_t1_rho = QBool(True, unit='', description='calculate T1 with a single thermal resistivity',
                                    source='config init', options=None, symbol='single T1 rho',
                                    help_id='install_config_single_t1_rho')
-        """Calculate T1 with a single thermal resistivity in line with the old IEC 60287-2-1 (still an optio in the
+        """Calculate T1 with a single thermal resistivity in line with the old IEC 60287-2-1 (still an option in the
+        new IEC 60287-2-1). The alternative is calculate T1 due to each layer as recommended in TB 880."""
+        self.single_t3_rho = QBool(True, unit='', description='calculate T3 with a single thermal resistivity',
+                                   source='config init', options=None, symbol='single T3 rho',
+                                   help_id='install_config_single_t3_rho')
+        """Calculate T1 with a single thermal resistivity in line with the old IEC 60287-2-1 (still an option in the
         new IEC 60287-2-1). The alternative is calculate T1 due to each layer as recommended in TB 880."""
         self.vary_carbon_paper_tr = QBool(True, unit='',
                                           description='carbon / metalised paper has single thermal resistivity or vary',
