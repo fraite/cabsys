@@ -964,6 +964,8 @@ def build_ladder(install: AutoInstall, cable_set_no: int, cable_no: int,
     log_start_section(log, 'ins_layer_rt', 'Electra 87')
     if not install.config.single_t1_rho.value:
         raise Exception('building ladder for transient but multiple insulation layers not implemented')
+    if not install.config.single_t3_rho.value:
+        raise Exception('building ladder for transient but multiple serving layers not implemented')
     if install.config.elt87_config.screen_layers.get_value(unit='', log=log):
         cond_screen_dia = cable.core.cond_screen_dia.get_value(unit='mm', log=log)
         no_cores = cable.number_cores.get_value(unit='', log=log)

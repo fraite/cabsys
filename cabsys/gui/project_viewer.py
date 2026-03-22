@@ -45,6 +45,7 @@ import cabsys.data_classes.cabsys_data_viewer as cabsys_data_viewer
 from cabsys.quantity import quantity_constants as qc
 from cabsys.quantity.quantity_store_viewer import QuantityCombobox
 import cabsys.iec.iec_constants as iec
+from cabsys.iec.details import results as iec_details
 
 # TODO: implement mirrored layout
 # TODO: implement circuit level data structure
@@ -1740,6 +1741,9 @@ class ProjectViewer:
                 x.start()
                 self.after_job = self.root.after(1000, lambda: self.main_thread_loop())
                 self.dlg.wait_window()
+
+                if not self.result_error:
+                    iec_details(dis_install, self.install_state, log)
 
                 self.status_label.config(text='updating display')
                 self.root.update()

@@ -1655,10 +1655,10 @@ def calc_t4_duct_4_2_6_2(install: AutoInstall, cable_set_no: int, cable_num: int
                                 f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
                                 f' not recognised')
 
-    t4dash = calc_t4dash_4_2_6_3(install, cable_set_no, cable_num, duct_air_temp, log=log).value
-    t4dd = calc_t4dd_4_2_6_4(install, cable_set_no, cable_num, log=log).value
+    t4dash = calc_t4dash_4_2_6_3(install, cable_set_no, cable_num, duct_air_temp, state=state, log=log).value
+    t4dd = calc_t4dd_4_2_6_4(install, cable_set_no, cable_num, state=state, log=log).value
     t4ddd = calc_t4ddd(install, cable_set_no, cable_num, conductor_temperature, sheath_temperature, duct_air_temp,
-                       state, log).value
+                       state=state, log=log).value
     n_d = install.cable_sets[cable_set_no].calc_num_cables_in_ducts(log=log).value
     t_4 = n_d * (t4dash + t4dd + t4ddd)
 
@@ -1666,10 +1666,11 @@ def calc_t4_duct_4_2_6_2(install: AutoInstall, cable_set_no: int, cable_num: int
                   description='cable external thermal resistance', symbol='T_4 duct')
 
 
+@UseState('T_4d', level=cabsys.data_classes.state.CABLE)
 @LogSection('T_4dash')
 def calc_t4dash_4_2_6_3(install: AutoInstall, cable_set_no: int, cable_no: int,
                         duct_air_temperature: float,
-                        log: Log = None) -> QFloat:
+                        state: InstallState = None, log: Log = None) -> QFloat:
     """Calculate T_4', thermal resistance between cable and duct
 
     IEC 60287-2-1 clause 4.2.6.3
@@ -1678,6 +1679,7 @@ def calc_t4dash_4_2_6_3(install: AutoInstall, cable_set_no: int, cable_no: int,
     :param cable_set_no: cable set number in install
     :param cable_no:  cable number in cable_set
     :param duct_air_temperature: average duct air temperature (°C)
+    :param state: install set state
     :param log: logger used to store results
     :return: delta_theta_s
     """
@@ -1747,9 +1749,10 @@ def calc_t4dash_4_2_6_3(install: AutoInstall, cable_set_no: int, cable_no: int,
                   description="T_4'", symbol="T_4dash")
 
 
+@UseState('T_4dd', level=cabsys.data_classes.state.CABLE)
 @LogSection('t_4dd')
 def calc_t4dd_4_2_6_4(install: AutoInstall, cable_set_no: int, cable_no: int,
-                      log: Log = None) -> QFloat:
+                      state: InstallState = None, log: Log = None) -> QFloat:
     """Calculate T_4dd, thermal resistance of duct walls
 
     IEC 60287-2-1 Section 4.2.6.4
@@ -1757,6 +1760,7 @@ def calc_t4dd_4_2_6_4(install: AutoInstall, cable_set_no: int, cable_no: int,
     :param install: cable installation
     :param cable_set_no: cable set number in install
     :param cable_no:  cable number in cable_set
+    :param state: installation set state
     :param log: logger used to store results
     :return: thermal resistance of the cable insulation (k.m/W)
     """
