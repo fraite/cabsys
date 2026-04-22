@@ -115,8 +115,8 @@ class QuantityBase:
         if log is not None:
             log.add_line(self.symbol, self.value, self.unit, self.source)
 
-    def get_value(self, unit: str = NoDefaultValue, log: Log = None,
-                  log_symbol: str = NoDefaultValue) -> Optional[float]:
+    def get_value(self, unit: Optional[str] = NoDefaultValue, log: Log = None,
+                  log_symbol: Optional[str] = NoDefaultValue) -> Optional[float]:
         """Get the value of the quantity
 
         Gets the value of the quantity and checks that the unit of measure is correct if unit is given. Optionally:
@@ -131,12 +131,12 @@ class QuantityBase:
         :param log_symbol: the symbol to use if the value is logged
         :return: the value of the quantity
         """
-        if unit is not NoDefaultValue:
+        if unit is not NoDefaultValue and unit is not None:
             if not unit == self.unit:
                 raise Exception(f'getting {self.symbol!r}: unit of measure {unit} does not match {self.unit!r}')
 
         if log is not None and self.value is not None:
-            if log_symbol is NoDefaultValue:
+            if log_symbol is NoDefaultValue or log_symbol is None:
                 log.add_line(self.symbol, self.value, self.unit, self.source)
             else:
                 log.add_line(log_symbol, self.value, self.unit, self.source)
@@ -267,6 +267,33 @@ class QFloat(QuantityBase):
             raise QuantityNoneError(f'trying to get {self.symbol} ({self.description}) but value is None')
 
         return_value = super().get_value(unit, log, log_symbol)
+
+        return return_value
+
+    def get_value2(self, unit: Optional[str] = None, log: Log = None,
+                   default: Optional[float] = None, log_symbol: str = None) -> float:
+        """Get the value of the quantity
+
+        Gets the value of the quantity and checks the unit of measure if unit is given. Optionally adds the item to the
+        logger if a logger is given.
+
+        If the value of the quantity is None the function will return the default value if given, else raise an
+        Exception
+
+        :param unit: unit of measure for quantity
+        :param log: if given an entry of the item will be added to the logger
+        :param default: default value if value is None
+        :param log_symbol: symbol to display if logger being used
+        :return: the value of the quantity
+        """
+
+        return_value = super().get_value(unit, log, log_symbol)
+
+        if return_value is None:
+            if default is None:
+                raise QuantityNoneError(f'trying to get {self.symbol} ({self.description}) but value is None')
+            else:
+                return default
 
         return return_value
 

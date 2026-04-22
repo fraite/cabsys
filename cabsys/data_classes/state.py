@@ -320,7 +320,7 @@ class UseState:
                 except KeyError:
                     pass
 
-            # get cable number if x_sec is being used
+            # get cable number if install is being used
             if state is None:
                 active_state = None
             elif self.level == CABLE or self.level == PLACED_CABLE:

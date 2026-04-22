@@ -2,7 +2,7 @@ import math
 import typing
 from typing import List, Union, Optional, Dict
 
-from cabsys.data_classes.install import PlacedCable, CableSet, Elt87Config, InstallConfig, Install
+from cabsys.data_classes.install import PlacedCable, CableSet, InstallCircuit,  Elt87Config, InstallConfig, Install
 from cabsys.data_classes.install import loads_install
 from cabsys.cigre import cigre_constants as cigre_consts
 from cabsys.iec import iec_constants as iec
@@ -172,6 +172,15 @@ class AutoCableSet(CableSet):
                     auto_cable: Cable = None,
                     auto_cable_source: str = '',
                     transient_solver: str = None) -> None:
+
+        self.auto_design_layout(follow_set, auto_cable, auto_cable_source, transient_solver)
+        self.auto_design_place(follow_set)
+
+    def auto_design_layout(self,
+                           follow_set=None,
+                           auto_cable: Cable = None,
+                           auto_cable_source: str = '',
+                           transient_solver: str = None) -> None:
 
         if (self.auto_cable_source == CABLE_AUTO_DESIGN or
                 self.auto_cable_source == INSTALL_AUTO_DESIGN or
@@ -453,6 +462,13 @@ class AutoCableSet(CableSet):
             else:
                 self.auto_spacing.set_value(follow_set.auto_spacing.value, unit='mm', source=CABLE_SET_AUTO_DESIGN)
 
+        return
+
+    def auto_design_place(self,
+                          follow_set=None) -> None:
+
+        number_cables = self.find_no_cables()
+
         if cable_set_q_is_not_fixed(self.auto_x):
             self.auto_x.set_value(0, unit='mm', source=CABLE_SET_AUTO_DESIGN)
         if cable_set_q_is_not_fixed(self.auto_depth):
@@ -493,28 +509,28 @@ class AutoCableSet(CableSet):
             else:
                 depth = self.auto_depth.value
             self.placed_cables[0].design(x=self.auto_x.value, y=depth, phase=iec.YELLOW)
-            self.placed_cables[1].design(x=self.auto_x.value - self.auto_spacing.value, y=depth,
+            self.placed_cables[1].design(x=self.auto_x.value - self.auto_spacing.get_value2(unit='mm'), y=depth,
                                          phase=iec.RED)
-            self.placed_cables[2].design(x=self.auto_x.value + self.auto_spacing.value, y=depth,
+            self.placed_cables[2].design(x=self.auto_x.value + self.auto_spacing.get_value2(unit='mm'), y=depth,
                                          phase=iec.BLUE)
         elif self.auto_formation.value == cc.VERTICAL_SPACED or self.auto_formation.value == cc.VERTICAL_TOUCHING:
             if self.auto_depth_top.value == iec.DEPTH_TOP:
                 if self.duct_layout.value == iec.NO_DUCTS:
                     depth = (self.auto_depth.value -
-                             self.auto_spacing.value - cable.calc_outer_diameter() / 2)
+                             self.auto_spacing.get_value2(unit='mm') - cable.calc_outer_diameter() / 2)
                 elif (self.duct_layout.value in [iec.INDIVIDUAL_WATER_DUCT, iec.INDIVIDUAL_AIR_DUCTS,
                                                  iec.INDIVIDUAL_FILLED_DUCT]):
                     depth = (self.auto_depth.value -
-                             self.auto_spacing.value - self.duct_od.value / 2)
+                             self.auto_spacing.get_value2(unit='mm') - self.duct_od.value / 2)
                 else:
                     raise DesignCableSetException(f'flat spaced or flat touching cable but installed'
                                                   f' in {self.duct_layout}')
             else:
                 depth = self.auto_depth.value
             self.placed_cables[0].design(x=self.auto_x.value, y=depth, phase=iec.YELLOW)
-            self.placed_cables[1].design(x=self.auto_x.value, y=depth - self.auto_spacing.value,
+            self.placed_cables[1].design(x=self.auto_x.value, y=depth - self.auto_spacing.get_value2(unit='mm'),
                                          phase=iec.RED)
-            self.placed_cables[2].design(x=self.auto_x.value, y=depth + self.auto_spacing.value,
+            self.placed_cables[2].design(x=self.auto_x.value, y=depth + self.auto_spacing.get_value2(unit='mm'),
                                          phase=iec.BLUE)
         elif self.auto_formation.value == cc.TREFOIL_SPACED or self.auto_formation.value == cc.TREFOIL_TOUCHING:
             duct_layout = self.duct_layout.get_value(unit='')
@@ -578,6 +594,131 @@ class AutoCableSet(CableSet):
                 rating_scenario.auto_voltage.set_value(self.auto_voltage.value, unit=self.auto_voltage.unit,
                                                        source=CABLE_SET_AUTO_DESIGN)
 
+
+class AutoInstallCircuit(InstallCircuit):
+    """A circuit in an installation.
+
+    A group of cable sets, the number of cable sets being the number of cables per phase."""
+
+    cable_sets: List[AutoCableSet]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def re_init(self, sources: List[str]):
+        """ re-initialise the cable set
+
+        Sets all values to None that are have a source that is the same as in the sources list. This can be used to
+        re-initialise auto designed cable sets at the start of an auto design.
+
+        :param sources: list of sources that will be set to None
+        :return: None
+        """
+        if self.auto_number_sets.source in sources:
+            self.auto_number_sets.value = None
+        if self.auto_spacing.source in sources:
+            self.auto_spacing.value = None
+        if self.desired_I.source in sources:
+            self.desired_I.value = None
+        if self.desired_I_change.source in sources:
+            self.desired_I_change.value = None
+        if self.preload_type.source in sources:
+            self.preload_type.value = None
+        if self.preload_current.source in sources:
+            self.preload_current.value = None
+        if self.f.source in sources:
+            self.f.value = None
+        if self.num_phases.source in sources:
+            self.num_phases.value = None
+
+        for cable_set in self.cable_sets:
+            cable_set.re_init(sources)
+
+        if self.auto_voltage.source in sources:
+            self.auto_voltage.value = None
+
+    def auto_design(self,
+                    auto_cable: Cable = None,
+                    auto_cable_source: str = '',
+                    transient_solver: str = None) -> None:
+
+        if auto_cable is None:
+            auto_cable = self.cable_sets[0].auto_cable
+            auto_cable_source = self.cable_sets[0].auto_cable_source
+
+        if install_circuit_q_is_not_fixed(self.num_phases):
+            self.num_phases.set_value(iec.THREE_PHASE, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.desired_I):
+            self.desired_I.set_value(1000.0, unit='A', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.desired_I_change):
+            if transient_solver in iec.TRANSIENT_SOLVERS:
+                self.desired_I_change.set_value(False, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+            else:
+                self.desired_I_change.set_value(True, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.preload_type):
+            if isinstance(self.current_curve, AutoCurrentCurve):
+                if self.current_curve.cyclic:
+                    self.preload_type.set_value(iec.PRELOAD_AVE_LOSS, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+                else:
+                    self.preload_type.set_value(iec.PRELOAD_OFF, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+            else:
+                if transient_solver in iec.TRANSIENT_SOLVERS:
+                    self.preload_type.set_value(iec.PRELOAD_OFF, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+                else:
+                    self.preload_type.set_value(None, unit='', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.preload_current):
+            if self.preload_type.value == iec.PRELOAD_CONST_CURRENT:
+                self.preload_current.set_value(self.desired_I.value / 2, unit='A',
+                                               source=INSTALL_CIRCUIT_AUTO_DESIGN)
+            else:
+                self.preload_current.set_value(None, unit='A', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.f):
+            self.f.set_value(50.0, unit='Hz', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        if install_circuit_q_is_not_fixed(self.auto_number_sets):
+           self.auto_number_sets.set_value(1, unit='', source=INSTALL_AUTO_DESIGN)
+
+        # delete cable_sets if auto_number_sets has been decreased
+        if self.auto_number_sets.value < 1:
+            raise DesignInstallException('number of cable sets must be 1 or greater')
+        while len(self.cable_sets) > self.auto_number_sets.value:
+            self.cable_sets = self.cable_sets[:-1]
+
+        # add extra cable_sets if auto_number_sets has been increased
+        while len(self.cable_sets) < self.auto_number_sets.value:
+            if len(self.cable_sets) == 0:
+                cable_set = AutoCableSet()
+                self.cable_sets.append(cable_set)
+            else:
+                cable_set = AutoCableSet()
+                self.cable_sets.append(cable_set)
+
+        if install_circuit_q_is_not_fixed(self.auto_voltage):
+            cable = self.cable_sets[0].auto_cable
+            voltage = cable.nominal_volts.value
+            self.auto_voltage.set_value(voltage, unit='kV', source=INSTALL_CIRCUIT_AUTO_DESIGN)
+
+        for cable_set in self.cable_sets:
+            cable_set.auto_design_layout(None, auto_cable, auto_cable_source, transient_solver)
+
+        if install_q_is_not_fixed(self.auto_spacing):
+            if self.auto_number_sets.value == 1:
+                self.auto_spacing.set_value(None, unit='mm', source=INSTALL_AUTO_DESIGN)
+            else:
+                cable_spacing = self.cable_sets[0].auto_spacing.value
+                if cable_spacing < 150:
+                    self.auto_spacing.set_value(500, unit='mm', source=INSTALL_AUTO_DESIGN)
+                else:
+                    self.auto_spacing.set_value(3 * cable_spacing, unit='mm', source=INSTALL_AUTO_DESIGN)
+
+        for cable_set in self.cable_sets:
+            cable_set.auto_design_place(None)
+
         return
 
 
@@ -594,6 +735,7 @@ class AutoInstall(Install):
     auto_spacing: QFloat
     kind: QStr
 
+    install_circuits = List[AutoInstallCircuit]
     cable_sets: List[AutoCableSet]
 
     def __init__(self, **kwargs):
@@ -1038,6 +1180,12 @@ class AutoInstall(Install):
                                 install_attr.set_value(proj_attr.value, unit=proj_attr.unit,
                                                        source= 'scenario: ' + str(proj_attr.source))
 
+        if install_q_is_not_fixed(self.auto_number_circuits):
+            if self._auto_design:
+                self.auto_number_circuits.set_value(1, unit='', source=INSTALL_AUTO_DESIGN)
+            else:
+                self.auto_number_circuits.set_value(1, unit='', source=INSTALL_AUTO_DESIGN)
+
         if install_q_is_not_fixed(self.auto_number_sets):
             if self._auto_design:
                 self.auto_number_sets.set_value(1, unit='', source=INSTALL_AUTO_DESIGN)
@@ -1074,6 +1222,36 @@ class AutoInstall(Install):
                 q_cycle_time.set_value(cycle_time, unit='s', source=INSTALL_AUTO_DESIGN)
             else:
                 q_cycle_time.set_value(None, unit='s', source=INSTALL_AUTO_DESIGN)
+
+        # delete install_circuits if auto_number_circuits has been decreased
+        if self.auto_number_circuits.value < 1:
+            # self.auto_number_sets.value = len(self.cable_sets)
+            # install_auto_design_status = 'Cannot set auto_number_sets to 0'
+            # self.set_auto_design_status(install_auto_design_status)
+            # raise DesignInstallException(self.get_auto_design_status())
+            # self.auto_number_sets.value = 1
+            raise DesignInstallException('number of installation circuits must be 1 or greater')
+            # self.cable_sets = []
+        while len(self.install_circuits) > self.auto_number_circuits.value:
+            self.install_circuits = self.install_circuits[:-1]
+
+        # add extra install_circuits if auto_number_circuits has been increased
+        while len(self.install_circuits) < self.auto_number_circuits.value:
+            if len(self.install_circuits) == 0:
+                install_circuit = AutoInstallCircuit()
+                self.install_circuits.append(install_circuit)
+            else:
+                install_circuit = AutoInstallCircuit()
+                cable_set = AutoCableSet()
+                cable_set.auto_cable = self.install_circuits[len(self.install_circuits) - 1].cable_sets[0].auto_cable
+                install_circuit.cable_sets.append(cable_set)
+                self.install_circuits.append(install_circuit)
+
+
+        for install_circuit_index, install_circuit in enumerate(self.install_circuits):
+            install_circuit.auto_design(auto_cable=auto_cable,
+                                        auto_cable_source=auto_cable_source,
+                                        transient_solver=self.config.solver_continuous.value)
 
         # delete cable_sets if auto_number_sets has been decreased
         if self.auto_number_sets.value < 1:
@@ -1149,6 +1327,47 @@ class AutoInstall(Install):
                 self.set_auto_design_status(design_status)
                 return
 
+        if install_q_is_not_fixed(self.auto_circuit_spacing):
+            if self.auto_number_circuits.value == 1:
+                self.auto_circuit_spacing.set_value(None, unit='mm', source=INSTALL_AUTO_DESIGN)
+            else:
+                circuit_spacing = 2000.0
+                for install_circuit in self.install_circuits:
+                    number_sets = len(install_circuit.cable_sets)
+                    auto_spacing = install_circuit.auto_spacing.value
+                    if auto_spacing is None:
+                        auto_spacing = 3000.0
+                    circuit_spacing = max(circuit_spacing, number_sets * auto_spacing)
+                    self.auto_circuit_spacing.set_value(circuit_spacing, unit='mm', source=INSTALL_AUTO_DESIGN)
+
+        circuit_spacing = self.auto_circuit_spacing.value
+        if circuit_spacing is None:
+            circuit_spacing = 0.0
+        for circuit_index, install_circuit in enumerate(self.install_circuits):
+            set_spacing = install_circuit.auto_spacing.value
+            if set_spacing is None:
+                set_spacing = 0.0
+            for cable_set_index, cable_set in enumerate(install_circuit.cable_sets):
+                if install_q_is_not_fixed(cable_set.auto_x):
+                    cable_spacing = cable_set.auto_spacing.value
+                    if cable_spacing is not None:
+                        cable_set.auto_x.set_value(circuit_index * circuit_spacing + cable_set_index * set_spacing,
+                                                   unit='mm',
+                                                   source=INSTALL_AUTO_DESIGN)
+                    else:
+                        raise DesignInstallException(f'trying to design auto_x_sec but auto_spacing is None')
+                if install_q_is_not_fixed(cable_set.clipped_to_wall):
+                    if self.kind.value == iec.IN_AIR_PROTECTED or iec.IN_AIR_EXPOSED or self.kind == iec.TUNNEL:
+                        cable_set.clipped_to_wall.set_value(False, unit='', source=INSTALL_AUTO_DESIGN)
+                    else:
+                        cable_set.clipped_to_wall.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
+                if install_q_is_not_fixed(cable_set.air_z):
+                    cable_set.air_z.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
+                if install_q_is_not_fixed(cable_set.air_e):
+                    cable_set.air_e.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
+                if install_q_is_not_fixed(cable_set.air_g):
+                    cable_set.air_g.set_value(None, unit='', source=INSTALL_AUTO_DESIGN)
+
         if install_q_is_not_fixed(self.config.log_level):
             if (self.rating_type.value == iec.RATING_CONTINUOUS and self.config.memorise.value and
                     (self.auto_number_sets.value is not None and self.auto_number_sets.value < 5)):
@@ -1204,6 +1423,19 @@ def cable_set_q_is_not_fixed(quantity: Union[QInt, QBool, QStr, QFloat]) -> bool
 
 
 class DesignCableSetException(Exception):
+    pass
+
+
+INSTALL_CIRCUIT_AUTO_DESIGN = 'install circuit auto design V0.0'
+
+
+def install_circuit_q_is_not_fixed(quantity: Union[QInt, QBool, QStr, QFloat]) -> bool:
+    return (quantity.source == CABLE_AUTO_DESIGN or
+            quantity.source == CABLE_SET_AUTO_DESIGN or quantity.source == INSTALL_CIRCUIT_AUTO_DESIGN or
+            quantity.source is None)
+
+
+class DesignInstallCircuitException(Exception):
     pass
 
 

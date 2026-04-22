@@ -15,6 +15,7 @@ from cabsys.data_classes.section import Section
 from cabsys.data_classes.node import Node
 from cabsys.data_classes.circuit import Circuit
 from cabsys.data_classes.state import InstallState
+from cabsys.data_classes.state_cct import InstallState as InstallStateCCT
 from cabsys.data_classes.auto_current_curve import AutoCurrentCurve
 from cabsys.data_classes.current_curve import CurrentCurve
 from cabsys.quantity.quantity_store import QuantityBase
@@ -69,7 +70,7 @@ class CabSysDataFrame(quant_store_viewer.QuantFrame):
 
         super().update_viewer()
 
-        if isinstance(self.instance, (Project, Cable, Install, InstallState, Scenario,
+        if isinstance(self.instance, (Project, Cable, Install, InstallState, InstallStateCCT, Scenario,
                                       Section, Node, Circuit, CurrentCurve)):
             try:
                 if self.is_auto_design and isinstance(self.instance, (AutoCable, AutoCurrentCurve,

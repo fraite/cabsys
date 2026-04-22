@@ -25,7 +25,7 @@ from cabsys.data_classes.install import Install
 from cabsys.data_classes.auto_install import AutoCableSet, AutoInstall
 import cabsys.iec.iec60287support as iec60287support
 from cabsys.data_classes.state import UseState
-import cabsys.iec.iec60287_2_1 as iec60287_2_1w
+import cabsys.iec.iec60287_2_1 as iec60287_2_1
 import cabsys.iec.iec_constants as iec
 # import cabsys.iec.iec60287_2_1alt as iec60287_2_1alt
 import cabsys.iec.iec60287_1_1alt as iec60287_1_1alt
@@ -125,19 +125,19 @@ def calc_delta_theta_4_2_1(install: AutoInstall, cable_set_num: int, cable_num: 
 
     lambda_1 = calc_lambda_1(install, cable_set_num, cable_num, cond_temp, sheath_temp, state=state, log=log)
     lambda_2 = calc_lambda_2(install, cable_set_num, cable_num, state=state, log=log)
-    t1 = iec60287_2_1w.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
-    t2 = iec60287_2_1w.calc_t2(cable, state=cable_state, log=log)
-    t3 = iec60287_2_1w.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
+    t1 = iec60287_2_1.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
+    t2 = iec60287_2_1.calc_t2(cable, state=cable_state, log=log)
+    t3 = iec60287_2_1.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
 
     if cable_set.duct_layout.value == iec.NO_DUCTS:
         duct_air_temp = None
     else:
         duct_air_temp = calc_theta_m(install, cable_set_num, cable_num, current, cond_temp, sheath_temp,
                                      state=state, log=log).value
-    t4 = iec60287_2_1w.calc_t4(install, cable_set_num, cable_num, cond_temp,
-                               sheath_temperature=sheath_temp,
-                               duct_air_temp=duct_air_temp,
-                               state=state, log=log)
+    t4 = iec60287_2_1.calc_t4(install, cable_set_num, cable_num, cond_temp,
+                              sheath_temperature=sheath_temp,
+                              duct_air_temp=duct_air_temp,
+                              state=state, log=log)
     n = cable_set.find_no_cores(cable_num, as_int=True, log=log)
 
     delta_theta = ((current**2 * r_ac.value + 0.5 * wd.value) *
@@ -238,19 +238,19 @@ def calc_delta_theta_d_4_2_1(install: AutoInstall, cable_set_num: int, cable_num
 
     sheath_temp = calc_theta_sc(install, cable_set_num, cable_num, current, cond_temp, state=state, log=log).value
 
-    t1 = iec60287_2_1w.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
-    t2 = iec60287_2_1w.calc_t2(cable, state=cable_state, log=log)
-    t3 = iec60287_2_1w.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
+    t1 = iec60287_2_1.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
+    t2 = iec60287_2_1.calc_t2(cable, state=cable_state, log=log)
+    t3 = iec60287_2_1.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
 
     if cable_set.duct_layout.value == iec.NO_DUCTS:
         duct_air_temp = None
     else:
         duct_air_temp = calc_theta_m(install, cable_set_num, cable_num, current, cond_temp, sheath_temp,
                                      state=state, log=log).value
-    t4 = iec60287_2_1w.calc_t4(install, cable_set_num, cable_num, cond_temp,
-                               sheath_temperature=sheath_temp,
-                               duct_air_temp=duct_air_temp,
-                               state=state, log=log)
+    t4 = iec60287_2_1.calc_t4(install, cable_set_num, cable_num, cond_temp,
+                              sheath_temperature=sheath_temp,
+                              duct_air_temp=duct_air_temp,
+                              state=state, log=log)
     n = cable_set.find_no_cores(cable_num, as_int=True, log=log)
 
     delta_theta = wd.value * (0.5 * t1.value + n * t2.value + n * (t3.value + t4.value))
@@ -326,13 +326,13 @@ def calc_i_4_2_1(install: AutoInstall, cable_set_num: int, cable_num: int,
                              sheath_temperature=sheath_temperature,
                              state=state, log=log)
     lambda_2 = calc_lambda_2(install, cable_set_num, cable_num, state=state, log=log)
-    t1 = iec60287_2_1w.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
-    t2 = iec60287_2_1w.calc_t2(cable, state=cable_state, log=log)
-    t3 = iec60287_2_1w.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
-    t4 = iec60287_2_1w.calc_t4(install, cable_set_num, cable_num, cond_temp,
-                               sheath_temperature=sheath_temperature,
-                               duct_air_temp=duct_air_temperature,
-                               state=state, log=log)
+    t1 = iec60287_2_1.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
+    t2 = iec60287_2_1.calc_t2(cable, state=cable_state, log=log)
+    t3 = iec60287_2_1.calc_t3(install, cable_set_num, cable_num, state=state, log=log)
+    t4 = iec60287_2_1.calc_t4(install, cable_set_num, cable_num, cond_temp,
+                              sheath_temperature=sheath_temperature,
+                              duct_air_temp=duct_air_temperature,
+                              state=state, log=log)
     n = cable_set.find_no_cores(cable_num, as_int=True, log=log)
 
     i = math.sqrt((delta_theta - wd.value * (0.5 * t1.value + n * (t2.value + t3.value + t4.value))) /
@@ -894,7 +894,7 @@ def calc_theta_sc_5_3_1(install: AutoInstall, cable_set_num: int, cable_num: int
                      iec_60287_1_1_ver=install.config.iec_60287_1_1_ver.value,
                      state=cable_set_state, log=log)
     wd = calc_wd(install, cable_set_num, cable_num, u_pe=u_pe, state=state, log=log)
-    t1 = iec60287_2_1w.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
+    t1 = iec60287_2_1.calc_t1(install, cable_set_num, cable_num, state=state, log=log)
 
     theta_sc = theta_c - (current**2 * r_ac.value + wd.value / 2) * t1.value
 
@@ -960,9 +960,9 @@ def calc_theta_m(install: AutoInstall, cable_set_num: int, cable_num: int,
     wd = calc_wd(install, cable_set_num, cable_num, u_pe=u_pe, state=state, log=log).value
     lambda1 = calc_lambda_1(install, cable_set_num, cable_num, conductor_temp, sheath_temp,
                             state=state, log=log).value
-    t1 = iec60287_2_1w.calc_t1(install, cable_set_num, cable_num, state=state, log=log).value
-    t2 = iec60287_2_1w.calc_t2(cable, state=cable_state, log=log).value
-    t3 = iec60287_2_1w.calc_t3(install, cable_set_num, cable_num, state=state, log=log).value
+    t1 = iec60287_2_1.calc_t1(install, cable_set_num, cable_num, state=state, log=log).value
+    t2 = iec60287_2_1.calc_t2(cable, state=cable_state, log=log).value
+    t3 = iec60287_2_1.calc_t3(install, cable_set_num, cable_num, state=state, log=log).value
 
     n_d = cable_set.calc_num_cables_in_ducts(log).value
 
@@ -976,7 +976,7 @@ def calc_theta_m(install: AutoInstall, cable_set_num: int, cable_num: int,
         if log is not None:
             log.add_line('θ_m estimate', theta_m, '°C')
         old_duct_temp = theta_m
-        t4dash = iec60287_2_1w.calc_t4dash_4_2_6_3(install, cable_set_num, cable_num, theta_m, log=log).value
+        t4dash = iec60287_2_1.calc_t4dash_4_2_6_3(install, cable_set_num, cable_num, theta_m, log=log).value
         theta_m = (theta_c - (current**2 * r_ac + wd / 2) * t1 -
                    ((current**2 * r_ac)*(1 + lambda1) + wd) * t2 -
                    ((current**2 * r_ac)*(1 + lambda1) + wd) * (t3 + n_d * t4dash / 2))

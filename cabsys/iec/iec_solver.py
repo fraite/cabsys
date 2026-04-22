@@ -291,6 +291,9 @@ def calc_temperatures(install: AutoInstall,
         install_amps.append(install_amp_ratios[i_cable_set] * old_install_amps[i_cable_set])
         log.add_line(f'new I_est', install_amps[i_cable_set], unit='A',
                      source=f'calculate estimated I')
+        if state is not None:
+            state.cable_set_states[i_cable_set].set_quantity('I', install_amps[i_cable_set], 'A', 'current rating of cable set',
+                                                              'new calculate temperature solver', symbol='I')
         cable_thetas = install_cond_thetas[i_cable_set]
         for i_cable, conductor_theta in enumerate(cable_thetas):
             cable_thetas[i_cable] = install_theta_ratios[i_cable_set] * cable_thetas[i_cable]
@@ -800,6 +803,14 @@ def solve_calc_current(install: AutoInstall, selected_scenario_name: str = None,
         install.config.auto_calc.set_value(False, source=dc.ATTR_COMPUTER_SET)
         raise SolverException(f'iterations took too long, press rate button',
                               'iec_solver-160')
+
+    for i_cable_set, cable_set in enumerate(install.cable_sets):
+        for i_placed_cable, placed_cable in enumerate(cable_set.placed_cables):
+            if state is not None:
+                cable_state = state.cable_set_states[i_cable_set].placed_cable_states[i_placed_cable].cable_state
+                if cable_state is not None:
+                    cable_state.set_quantity('cond_temp', install_cond_thetas[i_cable_set][i_placed_cable],
+                                             '°C', 'conductor temperature', '-')
 
     # return QStr(current_str, '', 'IEC 60287-1-1 clause 1.4.1.1, current rating buried no dry out, or air',
     #             description='current rating buried no dry out, or air', symbol='I')
