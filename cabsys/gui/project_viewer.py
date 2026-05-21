@@ -1664,7 +1664,7 @@ class ProjectViewer:
             self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
                                          amp_list=self.amp_list)
             # TODO: remove InstallState once InstallStateCCT works properly
-            if self.displayed_object.config.solver_continuous.value == iec.CALC_TEMPERATURE_CCT:
+            if self.displayed_object.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT, iec.CALC_TEMPERATURE_CCT_INSTALL]:
                 self.install_state = InstallStateCCT(self.displayed_object)
             else:
                 self.install_state = InstallState(self.displayed_object)
@@ -1759,7 +1759,8 @@ class ProjectViewer:
                 self.dlg.wait_window()
 
                 if not self.result_error and dis_install.rating_type.value == iec.RATING_CONTINUOUS:
-                    if dis_install.config.solver_continuous.value == iec.CALC_TEMPERATURE_CCT:
+                    if dis_install.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                      iec.CALC_TEMPERATURE_CCT_INSTALL]:
                         pass
                     else:
                         iec_details(dis_install, self.install_state, log)
@@ -1797,7 +1798,7 @@ class ProjectViewer:
                     self.status_label.config(text="Calculation successful")
 
                     if (self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS and
-                        dis_install.config.solver_continuous.value != iec.CALC_TEMPERATURE_CCT):
+                        dis_install.config.solver_continuous.value not in [iec.CALC_TEMPERATURE_CCT_CIRCUIT, iec.CALC_TEMPERATURE_CCT_INSTALL]):
                         table_result = 'Circuit:  '
                         for i_cct in range(len(self.cond_thetas_list)):
                             table_result += f'  cct {i_cct: 2.0f} '

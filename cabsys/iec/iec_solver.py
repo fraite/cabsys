@@ -61,7 +61,7 @@ def solve_calc_temperature_new(install: AutoInstall,
                                selected_scenario_name: str = None,
                                u_pe_list: List[List[float]] = None,
                                state: InstallState = None,
-                               log: Log = no_log) -> Tuple[str, ThetasList, AmpList]:
+                               log: Log = None) -> Tuple[str, ThetasList, AmpList]:
     """Calculate conductor temperatures for a given installation and set of currents
 
     Calculates the conductor temperature for a list of given cable_set conductor currents, listed in order of cable
@@ -85,6 +85,9 @@ def solve_calc_temperature_new(install: AutoInstall,
               install_cond_thetas: cable temperatures °C,
               install_amps: current of each cable set A)
     """
+
+    if log is None:
+        log = no_log
 
     log.start_section('current, temperature', source=f'solve_calc_temperature')
     log.add_line('max_cond_resistance', install.config.max_cond_theta.value, unit='',

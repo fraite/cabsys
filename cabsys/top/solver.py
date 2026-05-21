@@ -74,13 +74,14 @@ def solve(install: AutoInstall, selected_scenario_name: str = None, state: Insta
                                                                                         selected_scenario_name,
                                                                                         state=state, log=log)
             transient_result = None
-        elif solver == iec.CALC_TEMPERATURE_CCT:
+        elif solver == iec.CALC_TEMPERATURE_CCT_CIRCUIT or solver == iec.CALC_TEMPERATURE_CCT_INSTALL:
             current_str, cond_thetas, cond_amps = iec_solver_cct.solve_calc_temperature_new(install,
                                                                                             selected_scenario_name,
                                                                                             state=state, log=log)
             transient_result = None
         else:
             raise InvalidInput(f'continuous rating solver "{solver}" not recognised', 'solver-62')
+
     elif rating_type in [iec.RATING_EMERGENCY, iec.RATING_CYCLIC, iec.RATING_TRANSIENT]:
         # TODO: update for scenarios
         current_str, max_cond_temp, transient_result = elt087.solve_calc_temperature(install, state=state, log=log)

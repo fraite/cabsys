@@ -56,17 +56,35 @@ where
   cct*_set*_θ = [θ_c, θ_1, θ_2] for a three phase circuit"""
 
 
-def create_current_string(install: AutoInstall,
-                          install_amps: CableParamsList, install_cond_thetas: CableParamsList) -> str:
+def create_result_string(install: AutoInstall, install_cond_thetas: CableParamsList,
+                         install_cable_amps: CableParamsList=None,
+                         install_circuit_amps: List[float]=None) -> str:
+    """Create a string that summarises the given conductor temperature and circuit currents
+
+    If the cable amps is given the circuit amps is calculated. Otherwise, the circuit amps given will be used.
+
+    :param install: the installation
+    :param install_cond_thetas: a nested list that contains the conductor temperatures of the installation (°C)
+    :param install_cable_amps: nested list of cable currents (A)
+    :param install_circuit_amps: list of circuit currents (A)
+    :return: string summarising conductor temperatures and circuit currents
+    """
+
     current_str = 'θ, I ='
     for circuit_num, install_circuit in enumerate(install.install_circuits):
         max_cond_theta = -math.inf
-        circuit_amp = 0.0
+        if install_cable_amps is not None:
+            circuit_amp = 0.0
+        elif install_circuit_amps is not None:
+            circuit_amp = install_circuit_amps[circuit_num]
+        else:
+            raise IEC60287Exception('trying to create a result string but no amps have been given')
         for cable_set_num, cable_set in enumerate(install_circuit.cable_sets):
             set_cond_thetas = install_cond_thetas[circuit_num][cable_set_num]
             set_max_cond_theta = max(set_cond_thetas)
             max_cond_theta = max(set_max_cond_theta, max_cond_theta)
-            circuit_amp = circuit_amp + install_amps[circuit_num][cable_set_num][0]
+            if install_cable_amps is not None:
+                circuit_amp = circuit_amp + install_cable_amps[circuit_num][cable_set_num][0]
         current_str = current_str + (f' cct {circuit_num}: {round(max_cond_theta, 1)}, '
                                      f'{round(circuit_amp, 1)}')
     return current_str
@@ -118,7 +136,7 @@ def solve_calc_temperature_new(install: AutoInstall,
     # set initial values of conductor temperature and current for each placed cable / cable set
     log.start_section('initial θ and circuit I', source=f'solve_calc_temperature')
     install_cable_cond_thetas = []
-    circuit_amps = []
+    install_circuit_amps = []
     install_cable_amps = []
     ambient_theta = install.ambient_theta.get_value(unit='°C', log=log)
     if ambient_theta is None:
@@ -190,14 +208,14 @@ def solve_calc_temperature_new(install: AutoInstall,
                                 source='iec_solver.calculate_temperature')
 
         install_cable_cond_thetas.append(install_circuit_cond_thetas)
-        circuit_amps.append(circuit_amp_estimate)
+        install_circuit_amps.append(circuit_amp_estimate)
         log.end_section(f'I circuit={install_circuit_num}', circuit_amp_estimate, unit="A",
                         source='iec_solver.calculate_temperature')
     # create current_str
-    current_str = create_current_string(install, install_cable_amps, install_cable_cond_thetas)
+    current_str = create_result_string(install, install_cable_cond_thetas, install_circuit_amps=install_circuit_amps)
     log.end_section('initial θ and circuit I', current_str, '°C, A',  source=f'solve_calc_temperature')
 
-    install_cable_amps = tb283_cim.cim(install, circuit_amps, state=state, log=log)
+    install_cable_amps = tb283_cim.cim(install, install_circuit_amps, state=state, log=log)
 
     iteration = 0
     accuracy_achieved = False
@@ -236,19 +254,19 @@ def solve_calc_temperature_new(install: AutoInstall,
                                                                                  state, log)
 
     # create current_str
-    current_str = create_current_string(install, install_cable_amps, install_cable_cond_thetas)
+    current_str = create_result_string(install, install_cable_cond_thetas, install_cable_amps)
     log.end_section('current, temperature', current_str, '', source=f'solve_calc_temperature')
 
     if log is not None:
         log.add_line('number of iterations', iteration, '', '')
         log.add_line('time taken', time_taken, 's', '')
 
-    return current_str, install_cable_cond_thetas, circuit_amps
+    return current_str, install_cable_cond_thetas, install_circuit_amps
 
 
 def calc_temperatures(install: AutoInstall,
-                      install_cable_amps: CableParamsList,
-                      install_cable_cond_thetas: CableParamsList,
+                      old_install_cable_amps: CableParamsList,
+                      old_install_cable_cond_thetas: CableParamsList,
                       iteration: int,
                       selected_scenario_name: str = None,
                       u_pe_list: List[List[List[float]]] = None,
@@ -261,8 +279,8 @@ def calc_temperatures(install: AutoInstall,
     estimate. The function calculates if the required accuracy is achieved.
 
     :param install:
-    :param install_cable_amps:
-    :param install_cable_cond_thetas:
+    :param old_install_cable_amps:
+    :param old_install_cable_cond_thetas:
     :param iteration:
     :param selected_scenario_name:
     :param u_pe_list:
@@ -277,24 +295,20 @@ def calc_temperatures(install: AutoInstall,
 
     # start iteration
     log.start_section(f'iteration={iteration}', source=f'solve_calc_temperature')
-    old_install_cable_cond_thetas = copy.deepcopy(install_cable_cond_thetas)
-    old_install_cable_amps = copy.deepcopy(install_cable_amps)
     install_cable_cond_thetas = []
     install_cable_amps = []
-    install_cable_amp_ratios = []
-    install_cable_theta_ratios = []
-    circuit_amp_ratios = []
-    circuit_theta_ratios = []
+    install_circuit_amp_ratios = []
+    install_circuit_theta_ratios = []
+    install_amp_ratio = math.inf
+    install_theta_ratio = math.inf
     for i_circuit, install_circuit in enumerate(install.install_circuits):
         log.start_section(f'I, θ ratio (circuit {i_circuit})', 'calculate temperature solver')
-        circuit_cable_cond_thetas = []
+        circuit_cable_cond_thetas: List[List[float]] = []
         circuit_amp_ratio = math.inf
         circuit_theta_ratio = math.inf
         for i_cable_set, cable_set in enumerate(install_circuit.cable_sets):
-            log.start_section(f'I, θ ratio (cable set {i_cable_set})', 'calculate temperature solver')
+            log.start_section(f'max θ_est (cable set {i_cable_set})', 'calculate temperature solver')
             cable_set_cond_thetas = []
-            cable_amp_ratios = []
-            cable_theta_ratios = []
             for i_placed_cable, placed_cable in enumerate(cable_set.placed_cables):
                 if old_install_cable_amps[i_circuit][i_cable_set][i_placed_cable] is None:
                     raise IEC60287Exception(f'calculating conductor temperature but current is None for cable set {i_cable_set}')
@@ -306,26 +320,44 @@ def calc_temperatures(install: AutoInstall,
                                                         selected_scenario_name,
                                                         u_pe_list=u_pe_list,
                                                         state=state, log=log).get_value2(unit='°C')
-                log.start_section(f'I, θ ratio', 'calculate temperature solver')
-                old_cable_cond_theta = old_install_cable_cond_thetas[i_circuit][i_cable_set][i_placed_cable]
-                old_circuit_amps = old_install_cable_amps[i_circuit][i_cable_set][i_placed_cable]
-                if u_pe_list is None:
-                    u_pe = None
-                else:
-                    u_pe = u_pe_list[i_circuit][i_cable_set][i_placed_cable]
-                delta_theta_d = iec60287_1_1.calc_delta_theta_d(install,
-                                                                i_circuit, i_cable_set, i_placed_cable,
-                                                                current=old_circuit_amps, cond_temp=old_cable_cond_theta,
-                                                                u_pe=u_pe,
-                                                                state=state, log=log).get_value2(unit='°C')
-                max_cond_theta = iec60287support.get_cond_temp(placed_cable.cable).get_value2(unit='°C', log=log)
-                ambient_theta = install.ambient_theta.get_value(unit='°C', log=log)
                 cable_set_cond_thetas.append(cable_cond_theta)
-                amp_ratio = math.sqrt((max_cond_theta - delta_theta_d - ambient_theta)
-                                      / (cable_cond_theta - delta_theta_d - ambient_theta))
-                cable_amp_ratios.append(amp_ratio)
-                theta_ratio = max_cond_theta / cable_cond_theta
-                cable_theta_ratios.append(theta_ratio)
+                log.start_section(f'I, θ ratio', 'calculate temperature solver')
+                log.start_section(f'desired_I_change', 'user want conductor current be calculated?')
+                if install_circuit.desired_I_change.value:
+
+
+                    old_cable_cond_theta = old_install_cable_cond_thetas[i_circuit][i_cable_set][i_placed_cable]
+                    old_circuit_amps = old_install_cable_amps[i_circuit][i_cable_set][i_placed_cable]
+                    if u_pe_list is None:
+                        u_pe = None
+                    else:
+                        u_pe = u_pe_list[i_circuit][i_cable_set][i_placed_cable]
+                    delta_theta_d = iec60287_1_1.calc_delta_theta_d(install,
+                                                                    i_circuit, i_cable_set, i_placed_cable,
+                                                                    current=old_circuit_amps,
+                                                                    cond_temp=old_cable_cond_theta,
+                                                                    u_pe=u_pe,
+                                                                    state=state, log=log).get_value2(unit='°C')
+                    max_cond_theta = iec60287support.get_cond_temp(placed_cable.cable).get_value2(unit='°C', log=log)
+                    ambient_theta = install.ambient_theta.get_value(unit='°C', log=log)
+
+
+
+                    amp_ratio = math.sqrt((max_cond_theta - delta_theta_d - ambient_theta)
+                                          / (cable_cond_theta - delta_theta_d - ambient_theta))
+                    theta_ratio = max_cond_theta / cable_cond_theta
+                else:
+                    amp_ratio = 1.0
+                    theta_ratio = 1.0
+                log.end_section(f'desired_I_change', install_circuit.desired_I_change.value, '',
+                                'user want conductor current be calculated?')
+
+                # cable_amp_ratios.append(amp_ratio)
+                circuit_amp_ratio = min(amp_ratio, circuit_amp_ratio)
+                install_amp_ratio = min(amp_ratio, install_amp_ratio)
+                # cable_theta_ratios.append(theta_ratio)
+                circuit_theta_ratio = min(theta_ratio, circuit_theta_ratio)
+                install_theta_ratio = min(theta_ratio, install_theta_ratio)
                 log.end_section(f'I, θ ratio', f'{amp_ratio: .7f}, {theta_ratio: .7f}',
                                 unit='', source='calculate temperature solver')
                 log.end_section(f'θ_est cable={i_placed_cable}',
@@ -340,28 +372,14 @@ def calc_temperatures(install: AutoInstall,
                 circuit_cable_cond_thetas.append(cable_set_cond_thetas)
             log.end_section(f'use max_cond_theta', install.config.max_cond_theta.value, '',
                             'use IEC 60287-2-1 Section 4.2.3.2 approximation')
-            # smallest ratio dictates the cable set rating
-            log.start_section(f'desired_I_change', 'user want conductor current be calculated?')
-            if cable_set.desired_I_change.value:
-                cable_amp_ratio = min(cable_amp_ratios)
-                cable_theta_ratio = min(cable_theta_ratios)
-            else:
-                cable_amp_ratio = 1.0
-                cable_theta_ratio = 1.0
-            log.add_line('I_ratio', cable_amp_ratio, '', 'cable current ratio of cable set')
-            log.add_line('θ_ratio', cable_theta_ratio, '', 'cable temperature ratio of cable set')
-            install_cable_amp_ratios.append(cable_amp_ratio)
-            install_cable_theta_ratios.append(cable_theta_ratio)
-            log.end_section(f'desired_I_change', cable_set.desired_I_change.value, '',
-                            'user want conductor current be calculated?')
 
-            log.end_section(f'I, θ ratio (cable set {i_cable_set})',
-                            f'{cable_amp_ratio: .7f}, {cable_theta_ratio: .7f}',
-                            '', 'calc_install_cond_temp solver')
-            circuit_amp_ratio = min(cable_amp_ratios)
-            circuit_amp_ratios.append(circuit_amp_ratio)
-            circuit_theta_ratio = min(cable_theta_ratios)
-            circuit_theta_ratios.append(circuit_theta_ratio)
+            log.end_section(f'max θ_est (cable set {i_cable_set})',
+                            f'{max(circuit_cable_cond_thetas[-1]): .7f}',
+                            '°C', 'calc_install_cond_temp solver')
+        # circuit_amp_ratio = min(cable_amp_ratios)
+        install_circuit_amp_ratios.append(circuit_amp_ratio)
+        # circuit_theta_ratio = min(cable_theta_ratios)
+        install_circuit_theta_ratios.append(circuit_theta_ratio)
         install_cable_cond_thetas.append(circuit_cable_cond_thetas)
         log.end_section(f'I, θ ratio (circuit {i_circuit})',
                         f'{circuit_amp_ratio: .7f}, {circuit_theta_ratio: .7f}',
@@ -369,6 +387,13 @@ def calc_temperatures(install: AutoInstall,
 
     # update install_amps and conductor temperatures
     log.start_section('update I and θ', source='')
+    if install.config.solver_continuous.value == iec.CALC_TEMPERATURE_CCT_CIRCUIT:
+        fixed_install_ratio = False
+    elif install.config.solver_continuous.value == iec.CALC_TEMPERATURE_CCT_INSTALL:
+        fixed_install_ratio = True
+    else:
+        raise IEC60287Exception(f'trying to update amps/thetas but continuous solver is {install.config.solver_continuous.value}')
+    log.add_line('fixed install ratio?', fixed_install_ratio, '', 'install.config.solver_continuous')
     for i_circuit, install_circuit in enumerate(install.install_circuits):
         log.start_section(f'install circuit', source='')
         circuit_cable_thetas = install_cable_cond_thetas[i_circuit]
@@ -378,13 +403,31 @@ def calc_temperatures(install: AutoInstall,
             set_cable_amps = []
             set_cable_thetas = circuit_cable_thetas[i_cable_set]
             for i_cable, conductor_theta in enumerate(set_cable_thetas):
-                set_cable_amps.append(circuit_amp_ratios[i_circuit] * old_install_cable_amps[i_circuit][i_cable_set][i_cable])
-                set_cable_thetas[i_cable] = install_cable_theta_ratios[i_cable_set] * set_cable_thetas[i_cable]
-                log.add_line(f'new I_est', set_cable_amps[i_cable], unit='A',
-                             source=f'calculate estimated I')
+                if fixed_install_ratio:
+                    log.start_section(f'new I_est, θ_est cable={i_cable}', source=f'calculate estimated I (fixed install ratio)')
+                    log.add_line('old I', old_install_cable_amps[i_circuit][i_cable_set][i_cable], 'A', 'previous calculation')
+                    log.add_line('install amp ratio', f'{install_amp_ratio}', 'pu', 'previous calculation')
+                    set_cable_amps.append(install_amp_ratio * old_install_cable_amps[i_circuit][i_cable_set][i_cable])
+                    log.add_line('old θ', set_cable_thetas[i_cable], '°C', 'previous calculation')
+                    log.add_line('install θ ratio', f'{install_theta_ratio}', 'pu', 'previous calculation')
+                    set_cable_thetas[i_cable] = install_theta_ratio * set_cable_thetas[i_cable]
+                    log.end_section(f'new I_est, θ_est cable={i_cable}',
+                                    f'{set_cable_amps[i_cable]: 0.2f}, {set_cable_thetas[i_cable]: 0.2f}', unit='A, °C',
+                                 source=f'calculate estimated I (fixed install ratio)')
+                else:
+                    log.start_section(f'new I_est, θ_est cable={i_cable}', source=f'calculate estimated I')
+                    log.add_line('old I', old_install_cable_amps[i_circuit][i_cable_set][i_cable], 'A', 'previous calculation')
+                    log.add_line('circuit amp ratio', f'{install_circuit_amp_ratios[i_circuit]}', 'pu', 'previous calculation')
+                    set_cable_amps.append(install_circuit_amp_ratios[i_circuit] * old_install_cable_amps[i_circuit][i_cable_set][i_cable])
+                    log.add_line('old θ', set_cable_thetas[i_cable], '°C', 'previous calculation')
+                    log.add_line('circuit θ ratio', f'{install_circuit_theta_ratios[i_circuit]}', 'pu', 'previous calculation')
+                    set_cable_thetas[i_cable] = install_circuit_theta_ratios[i_circuit] * set_cable_thetas[i_cable]
+                    log.end_section(f'new I_est, θ_est cable={i_cable}',
+                                    f'{set_cable_amps[i_cable]: 0.2f}, {set_cable_thetas[i_cable]: 0.2f}', unit='A, °C',
+                                 source=f'calculate estimated I')
                 if state is not None:
                     cable_set_state = state.install_circuit_states[i_circuit].cable_set_states[i_cable_set]
-                    cable_state = cable_set_state.placed_cable_states[i_cable_set].cable_state
+                    cable_state = cable_set_state.placed_cable_states[i_cable].cable_state
                     if  cable_state is not None:
                         cable_state.set_quantity('I', set_cable_amps[i_cable],
                                                  'A', 'current rating of cable set',
@@ -394,7 +437,6 @@ def calc_temperatures(install: AutoInstall,
             circuit_cable_amps.append(set_cable_amps)
 
             thetas = " ".join(str(round(theta, 1)) for theta in install_cable_cond_thetas[i_circuit][i_cable_set])
-            log.add_line(f'new θ', thetas, unit='°C', source=f'calculate estimated I')
             log.end_section(f'cable set', i_cable_set, unit='', source='')
         install_cable_amps.append(circuit_cable_amps)
         log.end_section(f'install circuit', i_circuit, unit='', source='')
@@ -444,7 +486,7 @@ def calc_temperatures(install: AutoInstall,
                  f"required accuracy {install.config.amp_accuracy.value}")
     log.end_section('accuracy achieved', accuracy_achieved, '', source=f'or is another iteration required?')
 
-    current_str = create_current_string(install, install_cable_amps, install_cable_cond_thetas)
+    current_str = create_result_string(install, install_cable_cond_thetas, install_cable_amps)
     log.end_section(f'iteration={iteration}', current_str, '', source=f'solve_calc_temperature')
     return accuracy_achieved, install_cable_amps, install_cable_cond_thetas
 

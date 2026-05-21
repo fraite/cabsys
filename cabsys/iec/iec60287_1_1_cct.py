@@ -965,7 +965,7 @@ def calc_theta_m(install: Install, circuit_num: int, cable_set_num: int, cable_n
     """
 
     if state is not None:
-        install_circuit_state = install.install_circuits[circuit_num]
+        install_circuit_state = state.install_circuit_states[circuit_num]
         cable_set_state = install_circuit_state.cable_set_states[cable_set_num]
         if cable_set_state is not None:
             cable_state = cable_set_state.placed_cable_states[cable_num].cable_state
@@ -1007,7 +1007,7 @@ def calc_theta_m(install: Install, circuit_num: int, cable_set_num: int, cable_n
     t3 = iec60287_2_1.calc_t3(install, circuit_num, cable_set_num, cable_num,
                               state=state, log=log).get_value2(unit='K.m/W')
 
-    n_d = cable_set.calc_num_cables_in_ducts(log).get_value2()
+    n_d = cable_set.calc_num_cables_in_ducts(log).get_value()
 
     old_duct_temp = 0.0
     theta_m = (theta_c + theta_a) / 2

@@ -757,7 +757,7 @@ def calc_t4ddd(install: Install, circuit_num: int, cable_set_no: int, cable_no: 
     kind = install.kind.get_value(unit='', log=log)
 
     if kind == iec.IN_AIR_PROTECTED:
-        if len(cable_set) > 1 or len(install.install_circuits) > 1:
+        if len(install.install_circuits[circuit_num].cable_sets) > 1 or len(install.install_circuits) > 1:
             raise IEC60287Exception(f'trying to calculate T4, only 1 cable_set implemented for air installations')
         t4 = calc_t4_4_2_1_1(install, circuit_num, cable_set_no, cable_no,
                              conductor_temperature, sheath_temperature=sheath_temperature,
@@ -807,14 +807,13 @@ def calc_t4_4_2_1_1(install: Install, circuit_num, cable_set_no: int, cable_no: 
     cable = cable_set.placed_cables[cable_no].cable
 
     if state is not None:
-        install_circuit_state = state.install_circuit_states[cable_no]
+        install_circuit_state = state.install_circuit_states[circuit_num]
+    else:
+        install_circuit_state = None
+    if install_circuit_state is not None:
         cable_set_state = install_circuit_state.cable_set_states[cable_set_no]
     else:
         cable_set_state = None
-    # if cable_set_state is not None:
-    #     cable_state = cable_set_state.placed_cable_states[cable_no].cable_state
-    # else:
-    #     cable_state = None
 
     de = cable.calc_outer_diameter(log=log)
     de_star = de / 1000
@@ -1031,7 +1030,8 @@ def calc_delta_theta_d_4_2_1_1(install: Install, circuit_num: int, cable_set_no:
     cable = cable_set.placed_cables[cable_no].cable
 
     if state is not None:
-        cable_set_state = state.cable_set_states[cable_set_no]
+        install_circuit_state = state.install_circuit_states[circuit_num]
+        cable_set_state = install_circuit_state.cable_set_states[cable_set_no]
     else:
         cable_set_state = None
     if cable_set_state is not None:
@@ -1695,10 +1695,13 @@ def calc_t4_duct_4_2_6_2(install: Install, circuit_num: int, cable_set_no: int, 
                                 f' IEC 60287-2-1 version "{install.config.iec_60287_2_1_ver.value}" in install config'
                                 f' not recognised')
 
-    t4dash = calc_t4dash_4_2_6_3(install, circuit_num, cable_set_no, cable_num, duct_air_temp, state=state, log=log).value
-    t4dd = calc_t4dd_4_2_6_4(install, circuit_num, cable_set_no, cable_num, state=state, log=log).value
-    t4ddd = calc_t4ddd(install, cable_set_no, cable_num, conductor_temperature, sheath_temperature, duct_air_temp,
-                       state=state, log=log).value
+    t4dash = calc_t4dash_4_2_6_3(install, circuit_num, cable_set_no, cable_num, duct_air_temp,
+                                 state=state, log=log).get_value2(unit='K.m/W')
+    t4dd = calc_t4dd_4_2_6_4(install, circuit_num, cable_set_no, cable_num,
+                             state=state, log=log).get_value(unit='K.m/W')
+    t4ddd = calc_t4ddd(install, circuit_num, cable_set_no, cable_num,
+                       conductor_temperature, sheath_temperature, duct_air_temp,
+                       state=state, log=log).get_value2(unit='K.m/W')
     n_d = install.install_circuits[circuit_num].cable_sets[cable_set_no].calc_num_cables_in_ducts(log=log).value
     t_4 = n_d * (t4dash + t4dd + t4ddd)
 
