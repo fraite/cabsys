@@ -11,7 +11,7 @@ Some of the equations have been modified. The logger notes where the changes hav
 """
 
 import math
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional, List
 
 from cabsys import IEC60287Exception
 from cabsys.data_classes.install import CableSet
@@ -31,9 +31,11 @@ import cabsys.iec.iec60287_1_1alt_cct as iec60287_1_1alt
 
 
 def calc_delta_theta(install: Install, circuit_num: int, cable_set_num: int, cable_num: int,
-                     current: float, cond_temp: float,
-                     u_pe: float = None,
-                     state: InstallState = None, log: Log = None) -> QFloat:
+                     current: float | List[float],
+                     cond_temp: float | List[float],
+                     u_pe: Optional[float| List[float]] = None,
+                     state: Optional[InstallState] = None,
+                     log: Optional[Log] = None) -> QFloat:
     """Calculate the rise in conductor temperature for buried cables without soil dry out, or in air
 
     Calculate the rise in conductor temperature of buried cables without soil dry out or in air cables for a given

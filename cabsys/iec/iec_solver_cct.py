@@ -26,7 +26,7 @@ from typing import List, Tuple, Optional
 
 import cabsys.data_classes.state
 from cabsys.data_classes.state_cct import UseState
-import cabsys.quantity.quantity_constants as dc
+# import cabsys.quantity.quantity_constants as dc
 from cabsys.quantity.quantity_store import QFloat
 from cabsys.quantity.log import Log, LogSection, no_log
 # from cabsys.data_classes.cable import Cable
@@ -43,7 +43,7 @@ import cabsys.iec.iec_constants as iec
 import cabsys.cigre.tb283_cim as tb283_cim
 # import cabsys.cigre.electra087wrapper as elt087
 # import cabsys.iec.iec60853_2 as iec60853_2
-from cabsys.top.Exception import InvalidInput, SolverException
+# from cabsys.top.Exception import InvalidInput, SolverException
 
 CableParamsList = List[List[List[float]]]
 """List of cable parameters in an installation
@@ -57,8 +57,8 @@ where
 
 
 def create_result_string(install: AutoInstall, install_cond_thetas: CableParamsList,
-                         install_cable_amps: CableParamsList=None,
-                         install_circuit_amps: List[float]=None) -> str:
+                         install_cable_amps: Optional[CableParamsList]=None,
+                         install_circuit_amps: Optional[List[float]]=None) -> str:
     """Create a string that summarises the given conductor temperature and circuit currents
 
     If the cable amps is given the circuit amps is calculated. Otherwise, the circuit amps given will be used.
@@ -91,10 +91,10 @@ def create_result_string(install: AutoInstall, install_cond_thetas: CableParamsL
 
 
 def solve_calc_temperature_new(install: AutoInstall,
-                               selected_scenario_name: str = None,
-                               u_pe_list: List[List[List[float]]] = None,
-                               state: InstallState = None,
-                               log: Log = None) -> Tuple[str, CableParamsList, CableParamsList]:
+                               selected_scenario_name: Optional[str] = None,
+                               u_pe_list: Optional[List[List[List[float]]]] = None,
+                               state: Optional[InstallState] = None,
+                               log: Optional[Log] = None) -> Tuple[str, CableParamsList, CableParamsList]:
     """Calculate conductor temperatures for a given installation and set of currents
 
     Calculates the conductor temperature for a list of given cable_set conductor currents, listed in order of cable
@@ -146,9 +146,7 @@ def solve_calc_temperature_new(install: AutoInstall,
         install_circuit_cond_thetas = []
         circuit_cable_amps = []
         circuit_amp_estimate = 0.0
-        if install_circuit.desired_I_change.value:
-            # User wants to calculate the maximum current rating
-
+        if install_circuit.desired_I_change.value and install.config.solver_continuous.value == iec.CALC_TEMPERATURE_CCT_CIRCUIT:
             for cable_set_num, cable_set in enumerate(install_circuit.cable_sets):
                 log.start_section(f'I cable_set={cable_set_num}', source=f'solve_calc_temperature')
                 cable_set_thetas = []
@@ -268,9 +266,9 @@ def calc_temperatures(install: AutoInstall,
                       old_install_cable_amps: CableParamsList,
                       old_install_cable_cond_thetas: CableParamsList,
                       iteration: int,
-                      selected_scenario_name: str = None,
-                      u_pe_list: List[List[List[float]]] = None,
-                      state: InstallState = None,
+                      selected_scenario_name: Optional[str] = None,
+                      u_pe_list: Optional[List[List[List[float]]]] = None,
+                      state: Optional[InstallState] = None,
                       log: Log = no_log) -> Tuple[bool, CableParamsList, CableParamsList]:
     """Calculate estimate conductor temperatures and new estimated current ratings
 
@@ -491,333 +489,14 @@ def calc_temperatures(install: AutoInstall,
     return accuracy_achieved, install_cable_amps, install_cable_cond_thetas
 
 
-def solve_calc_temperature(install: AutoInstall,
-                           selected_scenario_name: str = None,
-                           cable_set_currents: List[float] = None,
-                           u_pe_list: List[List[float]] = None,
-                           state: InstallState = None,
-                           log: Log = None) -> Tuple[str, Optional[List[List[float]]], Optional[List[float]]]:
-    """Calculate conductor temperatures for a given installation and set of currents
-
-    Calculates the conductor temperature for a list of given cable_set conductor currents, listed in order of cable
-    sets.
-
-    The calculations calculate the a.c. resistance of the conductors at the actual temperatures the conductors are at
-    rather than at the maximum operating temperature and hence the results do not comply with IEC 60287 but are closer
-    to reality.
-
-    If no cable_set currents are given, the currents defined in the given install are used. The install has the option
-    to change the currents so that the maximum conductor temperature is reached, set by the desired_I_change flag in
-    the cable_set object. This will change all the cable_set currents that are allowed to change by the same ratio until
-    at least one cable in one cable_set reaches the maximum conductor operating temperature.
-
-    :param install: installation
-    :param selected_scenario_name: the scenario (for example winter)
-    :param cable_set_currents: list of cable set currents in the order of cable sets found in install (A)
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state:
-    :param log:
-    :return: (current_str: status string,
-              install_cond_thetas: cable temperatures °C,
-              install_amps: current of each cable set A)
-    """
-
-    if log is not None:
-        log.start_section('current, temperature', source=f'solve_calc_temperature')
-
-    if cable_set_currents is None:
-        cable_set_currents_change = [cable_set.desired_I_change.value for cable_set in install.cable_sets]
-        allow_conductor_current_change = False
-        cable_set_currents = []
-        for cable_set in install.cable_sets:
-            cable_set_currents.append(cable_set.desired_I.value)
-            if cable_set.desired_I_change.value:
-                allow_conductor_current_change = True
-    else:
-        cable_set_currents_change = [False for _currents in cable_set_currents]
-        allow_conductor_current_change = False
-
-    # initialise list of cable conductor temperatures with maximum operating temperatures
-    install_cond_temp = [[iec60287support.get_cond_temp(placed_cable.cable).value for
-                          placed_cable in cable_set.placed_cables] for
-                         cable_set in install.cable_sets]
-    old_install_cond_temp = [[iec60287support.get_cond_temp(placed_cable.cable).value for
-                              placed_cable in cable_set.placed_cables] for
-                             cable_set in install.cable_sets]
-    old_ratio = -1.0
-    current_ratio = 1.0
-    iteration_number = 0
-    start_time = time.perf_counter()
-    time_taken = 0.0
-
-    while ((abs(old_ratio - current_ratio) > 0.0001 or
-            abs(compare_install_temperature(old_install_cond_temp, install_cond_temp)) > 0.01) and
-            (time_taken < 1.0 or not install.config.auto_calc.value)):
-        iteration_number = iteration_number + 1
-
-        old_ratio = current_ratio
-        old_install_cond_temp = install_cond_temp
-        current_ratio, install_cond_temp = calc_current_ratio(install, cable_set_currents,
-                                                              old_install_cond_temp, u_pe_list,
-                                                              cable_set_currents_change, iteration_number,
-                                                              current_ratio,
-                                                              allow_conductor_current_change,
-                                                              selected_scenario_name,
-                                                              state=state, log=log, section_log_level=70)
-
-        time_taken = time.perf_counter() - start_time
-
-        if state is not None and state.cancel:
-            return 'cancelled', None, None
-        diff = compare_install_temperature(old_install_cond_temp, install_cond_temp)
-        if state is not None:
-            state.progress = f'iteration: {iteration_number}, temperature difference: {round(diff, 3)} °C'
-
-    if log is not None:
-        log.add_line('number of iterations', iteration_number, '', '')
-        log.add_line('time taken', time_taken, 's', '')
-
-    if ((time_taken < 1.0 or not install.config.auto_calc.value) and
-            current_ratio > 0.01):
-        # repeat last calculation so that it is logged and stored in State object
-        current_ratio, install_cond_temp = calc_current_ratio(install, cable_set_currents,
-                                                              old_install_cond_temp, u_pe_list,
-                                                              cable_set_currents_change, iteration_number,
-                                                              current_ratio,
-                                                              allow_conductor_current_change,
-                                                              selected_scenario_name,
-                                                              state=state, log=log)
-        new_cable_set_currents = []
-        for cable_set_no, cable_set in enumerate(install.cable_sets):
-            if cable_set_currents_change[cable_set_no]:
-                new_cable_set_currents.append(cable_set_currents[cable_set_no] * current_ratio)
-            else:
-                new_cable_set_currents.append(cable_set_currents[cable_set_no])
-        current_str = '𝜃, I ='
-        for cable_set_no, cable_set in enumerate(install.cable_sets):
-            current = new_cable_set_currents[cable_set_no]
-            if state is not None:
-                state.cable_set_states[cable_set_no].set_quantity('I', current, 'A', 'current rating of cable set',
-                                                                  'calculate temperature solver', symbol='I')
-            if log is not None:
-                log.add_line(f'I cable_set={cable_set_no}', current, 'A', 'calculate temperature solver')
-            current_round = round(current, 1)
-            theta_round = round(max(install_cond_temp[cable_set_no]), 1)
-            current_str = f'{current_str} cct {cable_set_no}: {theta_round}, {current_round} '
-    elif current_ratio <= 0.1:
-        # current_str = f'Error: ratio too low ({current_ratio}), user set desired rating too high'
-        raise SolverException(f'ratio too low ({current_ratio}), desired rating too high?',
-                              'iec_solver-153')
-        # install_cond_temp = None
-    else:
-        # current_str = f'Error: iterations took too long, press rate button'
-        # install_cond_temp = None
-        install.config.auto_calc.set_value(False, source=dc.ATTR_COMPUTER_SET)
-        raise SolverException(f'iterations took too long, press rate button',
-                              'iec_solver-160')
-
-    if state is not None:
-        state.progress = ''
-
-    if log is not None:
-        log.end_section('current, temperature', current_str, '', source=f'solve_calc_temperature')
-
-    return current_str, install_cond_temp, new_cable_set_currents
-
-
-def compare_install_temperature(install_var1: list, install_var2: list):
-    max_difference = 0.0
-    for cable_set_count, cable_set_values in enumerate(install_var1):
-        for cable_count in range(len(cable_set_values)):
-            difference = abs(install_var1[cable_set_count][cable_count] - install_var2[cable_set_count][cable_count])
-            if difference > max_difference:
-                max_difference = difference
-    return max_difference
-
-
-def calc_current_ratio(install: AutoInstall,
-                       cable_set_currents: List[float],
-                       install_cond_temp: List[List[float]],
-                       u_pe_list: List[List[float]],
-                       cable_set_currents_change: List[float],
-                       iteration_number: int, current_ratio: float,
-                       allow_conductor_current_change: bool,
-                       selected_scenario_name: str = None,
-                       state: InstallState = None, log: Log = None,
-                       section_log_level: int = None) -> Tuple[float, List[List[float]]]:
-    """Calculate new current ratio (and conductor temperatures)
-
-    :param install: installation object
-    :param cable_set_currents: conductor currents of each cable_set
-    :param install_cond_temp: old conductor temperatures of each cable
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param cable_set_currents_change: is cable set allowed to change current
-    :param iteration_number: iteration number
-    :param current_ratio: existing current_ratio
-    :param allow_conductor_current_change: any currents in cable sets allowed to change
-    :param selected_scenario_name: the scenario (for example winter)
-    :param state: holds results from calculation (warning: any state object passed into function may be cleared)
-    :param log: results logger
-    :param section_log_level: log level for these calculations (typically 70 if not final calculation)
-    :return: new current_ratio, list of conductor temperatures
-    """
-    if log is not None:
-        log.start_section('current ratio', source=f'{iteration_number}', section_log_level=section_log_level)
-
-    # Can not use results from past iteration so need to clear state object if memorisation is being used
-    if state is not None and state.get_memorise():
-        state.clear_quantities()
-
-    old_ratio = current_ratio
-    new_cable_set_currents = []
-    for cable_set_no, cable_set in enumerate(install.cable_sets):
-        if cable_set_currents_change[cable_set_no]:
-            new_cable_set_currents.append(cable_set_currents[cable_set_no] * current_ratio)
-        else:
-            new_cable_set_currents.append(cable_set_currents[cable_set_no])
-
-    current_ratio_ratio, new_install_cond_temp = calc_current_ratio_ratio(install, install_cond_temp,
-                                                                          selected_scenario_name,
-                                                                          install_current=new_cable_set_currents,
-                                                                          u_pe_list=u_pe_list,
-                                                                          state=state, log=log)
-
-    new_current_ratio = current_ratio_ratio * old_ratio if allow_conductor_current_change else 1.0
-    if log is not None:
-        log.end_section('current ratio', current_ratio, '', source=f'iteration number = {iteration_number}')
-    return new_current_ratio, new_install_cond_temp
-
-
-def calc_current_ratio_ratio(install: AutoInstall, old_install_cond_temp: List[List[float]],
-                             selected_scenario_name: str = None,
-                             install_current: List[float] = None,
-                             u_pe_list: List[List[float]] = None,
-                             state: InstallState = None, log: Log = None) -> Tuple[float, List[List[float]]]:
-    """Calculated correction ratio for current ratio (and new conductor temperatures)
-
-    Calculates an estimate of the correction ratio to be applied to the current best estimate of conductor currents
-    given in install_current.
-
-    The conductor currents is given as a list of currents, one value for each cable set in the install object, in the
-    same order as the cable sets are found in the install object. The values in the list are multiplied by the old_ratio
-    value.
-
-    If no conductor currents are given (by setting install_current to None), the conductor currents are taken from
-    the Install.CableSet.desired_I attribute. This value is modified my the old_ratio value so long as the
-    Install.CableSet.desired_I_change attribute is set to True. This allows some conductor currents to be fixed, while
-    other conductor currents are optimised.
-
-    The old conductor temperatures are given as a nested list. The innermost list is a list of conductor temperatures
-    for each cable in a cable_set. The outer list is a list of cable_set conductor temperatures.
-
-    The function returns the newly calculated conductor temperatures following a single iteration, in the same format
-    as the old_install_cond_temp.
-
-    The function also returns the correction ratio, which when multiplied by the conductor currents gives an estimate
-    of the maximum conductor currents that can be applied without exceeding maximum conductor temperatures.
-
-    Note: if memorisation is being used, the existing values such as conductor resistance are no longer valid so the
-    state object if given is cleared before the calculation starts.
-
-    :param install: installation object
-    :param old_install_cond_temp: old conductor temperatures of each cable
-    :param selected_scenario_name: the scenario (for example winter)
-    :param install_current: conductor currents of each cable_set
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state: holds results from calculation (warning: any state object passed into function may be cleared)
-    :param log: results logger
-    :return: current_ratio and list of conductor temperatures
-    """
-
-    if install_current is None:
-        install_current2 = [cable_set.desired_I.value if cable_set.desired_I_change.value
-                            else cable_set.desired_I.value
-                            for cable_set in install.cable_sets]
-    else:
-        install_current2 = [current for current in install_current]
-
-    install_cond_temp = calc_install_cond_temp(install, install_current2, old_install_cond_temp,
-                                               selected_scenario_name,
-                                               u_pe_list=u_pe_list,
-                                               state=state, log=log)
-
-    log.start_section('current ratio ratio', source=f'see Document Section x.x')
-    new_ratio = math.inf
-    for cable_set_no, cable_set in enumerate(install.cable_sets):
-        for cable_no, placed_cable in enumerate(cable_set.placed_cables):
-            log.start_section(f'cableset {cable_set_no}, cable {cable_no}', source=f'see Document Section x.x')
-            max_cond_temp = iec60287support.get_cond_temp(placed_cable.cable).get_value(unit='°C', log=log)
-            calc_cond_temp = install_cond_temp[cable_set_no][cable_no]
-            if log is not None:
-                log.add_line('conductor temperature', calc_cond_temp, '°C', 'see above')
-            ambient_temp = install.get_ambient_temperature(selected_scenario_name, cable_set_no, cable_no, unit='°C')
-            if calc_cond_temp == ambient_temp:
-                new_cable_ratio = math.inf
-            else:
-                new_cable_ratio = math.sqrt((max_cond_temp - ambient_temp) / (calc_cond_temp - ambient_temp))
-            new_ratio = min(new_cable_ratio, new_ratio)
-            log.end_section(f'cableset {cable_set_no}, cable {cable_no}',
-                            value=new_ratio, unit='', source=f'see Document Section x.x')
-    current_ratio_ratio = new_ratio
-    log.end_section('current ratio ratio', current_ratio_ratio, unit='', source=f'see Document Section x.x')
-
-    return current_ratio_ratio, install_cond_temp
-
-
-def calc_install_cond_temp(install: AutoInstall, install_current: List[float], old_install_cond_temp,
-                           selected_scenario_name: str = None,
-                           u_pe_list: List[List[float]] = None,
-                           state: InstallState = None, log: Log = None) -> List[List[float]]:
-    """Calculate the conductor temperatures for cables in an installation
-
-    Calculates the next iteration of conductor temperatures for a given set of currents, which needs to assume the
-    conductor temperatures.
-
-    Normally the conductor temperature is returned but if temperature_rise is set to True then the temperature rise
-    of the cable, ignoring the ambient temperature and temperature rise due to other cables, is returned. Cable losses
-    will still be calculated based on the temperature of the cable.
-
-    :param install: the installation
-    :param install_current: list of currents for each cable_set
-    :param old_install_cond_temp: assumed conductor temperatures for each cable
-    :param selected_scenario_name: the scenario (for example winter)
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state: object holding results
-    :param log: logger
-    :return: conductor temperatures or conductor temperature rises (°C)
-    """
-
-    # calculate next iteration of conductor temperatures
-    install_cond_temp = []
-    for i_cable_set, cable_set in enumerate(install.cable_sets):
-        if install_current[i_cable_set] is None:
-            raise InvalidInput(f'calculating conductor temperature but current is None for cable set {i_cable_set}')
-
-        if isinstance(log, Log):
-            log.start_section(f'θ (cable set {i_cable_set})', 'calculate temperature solver')
-            log.add_line('assumed I', install_current[i_cable_set], 'A', 'calculate temperature solver')
-        cable_set_cond_temp = []
-        for i_placed_cable, placed_cable in enumerate(install.cable_sets[i_cable_set].placed_cables):
-            cable_cond_temp = calc_cable_cond_temp(install, i_cable_set, i_placed_cable,
-                                                   install_current, old_install_cond_temp,
-                                                   selected_scenario_name,
-                                                   u_pe_list=u_pe_list,
-                                                   state=state, log=log)
-            cable_set_cond_temp.append(cable_cond_temp.value)
-        install_cond_temp.append(cable_set_cond_temp)
-        if isinstance(log, Log):
-            log.end_section(f'θ (cable set {i_cable_set})', max(cable_set_cond_temp), '°C',
-                            'calc_install_cond_temp solver')
-    return install_cond_temp
-
 
 @UseState('cond_temp', level=cabsys.data_classes.state.CABLE)
 @LogSection('θ')
 def calc_cable_cond_temp(install: AutoInstall, circuit_num: int, cable_set_no: int, cable_no,
                          install_current: CableParamsList, old_install_cond_temp: CableParamsList,
-                         selected_scenario_name: str = None,
-                         u_pe_list: CableParamsList = None,
-                         state: InstallState = None, log: Log = None) -> QFloat:
+                         selected_scenario_name: Optional[str] = None,
+                         u_pe_list: Optional[CableParamsList] = None,
+                         state: Optional[InstallState] = None, log: Optional[Log] = None) -> QFloat:
     """Calculate the cable conductor temperature
 
     Calculates the next iteration for a cable conductor temperature for a given current, which needs to assume the
@@ -868,271 +547,3 @@ def calc_cable_cond_temp(install: AutoInstall, circuit_num: int, cable_set_no: i
 
     return QFloat(cond_temp, '°C', 'IEC 60287-1-1 clause 2.1', description=description, symbol=symbol)
 
-
-def solve_calc_current(install: AutoInstall, selected_scenario_name: str = None,
-                       state: InstallState = None,
-                       log: Log = None) -> Tuple[str, Optional[List[List[float]]], Optional[List[float]]]:
-    """
-
-    :param install: installation
-    :param selected_scenario_name: the scenario (for example winter)
-    :param state:
-    :param log:
-    :return: (current_str: status string,
-              install_cond_thetas: cable temperatures °C,
-              install_amps: current of each cable set A)
-    """
-
-    # initialise list of cable conductor temperatures with maximum operating temperatures
-    install_cond_thetas = [[iec60287support.get_cond_temp(placed_cable.cable).value for
-                            placed_cable in cable_set.placed_cables]
-                           for cable_set in install.cable_sets]
-    install_amps = [0.0 for _cable_set in install.cable_sets]
-    old_install_current = [-9.9 for _cable_set in install.cable_sets]
-
-    iteration_number = 0
-    start_time = time.perf_counter()
-    time_taken = 0.0
-    while (compare_install_current(old_install_current, install_amps) > 0.01 and
-            (time_taken < 1.0 or not install.config.auto_calc.value)):
-        iteration_number = iteration_number + 1
-        log.start_section('iteration number', source='', section_log_level=70)
-        if state.get_memorise():
-            state.clear_quantities()
-        old_install_current = install_amps
-        install_sheath_temp = calc_install_sheath_temp(install, install_amps, install_cond_thetas,
-                                                       state=state, log=log)
-        install_duct_air_temp = calc_install_duct_air_temp(install, install_amps, install_cond_thetas,
-                                                           install_sheath_temp,
-                                                           state=state, log=log)
-        install_amps = calc_install_current_rating(install, install_cond_thetas, install_sheath_temp,
-                                                   install_duct_air_temp,
-                                                   install_amps,
-                                                   state=state, log=log)
-        log.end_section('iteration number', iteration_number, '', '')
-        time_taken = time.perf_counter() - start_time
-
-        if state.cancel:
-            # return QStr('cancelled', '', 'IEC 60287-1-1 clause 1.4.1.1, current rating buried no dry out, or air',
-            #             description='current rating buried no dry out, or air', symbol='I')
-            return 'cancelled', None, None
-        diff = compare_install_current(old_install_current, install_amps)
-        state.progress = f'iteration: {iteration_number}, current difference: {round(diff, 3)} A'
-
-    log.add_line('number of iterations', iteration_number, '', '')
-    log.add_line('time taken', time_taken, 's', '')
-
-    if time_taken < 1.0 or not install.config.auto_calc.value:
-        if state.get_memorise():
-            state.clear_quantities()
-        install_sheath_temp = calc_install_sheath_temp(install, old_install_current, install_cond_thetas,
-                                                       state=state, log=log)
-        install_duct_air_temp = calc_install_duct_air_temp(install, install_amps, install_cond_thetas,
-                                                           install_sheath_temp,
-                                                           state=state, log=log)
-        install_amps = calc_install_current_rating(install, install_cond_thetas, install_sheath_temp,
-                                                   install_duct_air_temp,
-                                                   install_amps,
-                                                   selected_scenario_name=selected_scenario_name,
-                                                   state=state, log=log)
-        current_str = 'I ='
-        for cable_set_no, cable_set in enumerate(install.cable_sets):
-            current_str = f'{current_str} {cable_set_no}: {round(install_amps[cable_set_no], 1)} '
-
-        if isinstance(log, Log):
-            log.start_section('check', 'check any ratings set by user not too high')
-        for i_cable_set, cable_set in enumerate(install.cable_sets):
-            if not cable_set.desired_I_change.value:
-                calculated_current = calc_cable_set_current(install, i_cable_set, install_cond_thetas,
-                                                            install_sheath_temp, install_duct_air_temp,
-                                                            old_install_current,
-                                                            selected_scenario_name=selected_scenario_name,
-                                                            state=None, log=log)
-                cable_set_current = install.cable_sets[i_cable_set].desired_I
-                if calculated_current.value < cable_set_current.value:
-                    raise SolverException(f'Desired rating {cable_set_current} too high.'
-                                          f' Calculated rating is {calculated_current}')
-        if isinstance(log, Log):
-            log.end_section('check', 'OK', '', 'check any ratings set by user not too high')
-
-    else:
-        # current_str = f'Error: iterations took too long, press rate button'
-        install.config.auto_calc.set_value(False, source=dc.ATTR_COMPUTER_SET)
-        raise SolverException(f'iterations took too long, press rate button',
-                              'iec_solver-160')
-
-    for i_cable_set, cable_set in enumerate(install.cable_sets):
-        for i_placed_cable, placed_cable in enumerate(cable_set.placed_cables):
-            if state is not None:
-                cable_state = state.cable_set_states[i_cable_set].placed_cable_states[i_placed_cable].cable_state
-                if cable_state is not None:
-                    cable_state.set_quantity('cond_temp', install_cond_thetas[i_cable_set][i_placed_cable],
-                                             '°C', 'conductor temperature', '-')
-
-    # return QStr(current_str, '', 'IEC 60287-1-1 clause 1.4.1.1, current rating buried no dry out, or air',
-    #             description='current rating buried no dry out, or air', symbol='I')
-    return current_str, install_cond_thetas, install_amps
-
-
-def compare_install_current(install_var1: list, install_var2: list):
-    max_difference = 0.0
-    for cable_set_count in range(len(install_var1)):
-        difference = abs(install_var1[cable_set_count] - install_var2[cable_set_count])
-        if difference > max_difference:
-            max_difference = difference
-    return max_difference
-
-
-def calc_install_current_rating(install: AutoInstall, install_cond_temp,
-                                install_sheath_temp, install_duct_air_temp, old_install_current,
-                                selected_scenario_name: str = None,
-                                state: InstallState = None, log: Log = None):
-
-    install_current = []
-    for i_cable_set, cable_set in enumerate(install.cable_sets):
-        if isinstance(log, Log) and len(install.cable_sets) > 1:
-            log.start_section(f'cable set number {i_cable_set}', 'calculate current solver')
-        if install.cable_sets[i_cable_set].desired_I_change.value:
-            cable_set_current = calc_cable_set_current(install, i_cable_set, install_cond_temp, install_sheath_temp,
-                                                       install_duct_air_temp,
-                                                       old_install_current,
-                                                       selected_scenario_name=selected_scenario_name,
-                                                       state=state, log=log)
-        else:
-            cable_set_current = install.cable_sets[i_cable_set].desired_I
-            state.cable_set_states[i_cable_set].set_quantity('I', cable_set_current.value, 'A',
-                                                             'current rating of cable set', 'set by user', symbol='I')
-            if isinstance(log, Log):
-                log.add_line('I', cable_set_current.value, 'A', 'desired value set by user')
-                log.add_warning('Desired circuit rating has been set by user: rating may not be accurate')
-        if isinstance(log, Log) and len(install.cable_sets) > 1:
-            log.end_section(f'cable set number {i_cable_set}', cable_set_current.value, 'A', 'calculate current solver')
-        install_current.append(cable_set_current.value)
-    return install_current
-
-
-@UseState('I', level=cabsys.data_classes.state.CABLE_SET)
-@LogSection('I')
-def calc_cable_set_current(install: AutoInstall, cable_set_no: int,
-                           install_cond_temp, install_sheath_temp,
-                           install_duct_air_temp,
-                           old_install_current,
-                           selected_scenario_name: str = None,
-                           u_pe_list: List[List[float]] = None,
-                           state: InstallState = None, log: Log = None) -> QFloat:
-    """
-
-    :param install: installation containing the cable
-    :param cable_set_no: cable set number for the cable set containing the cable
-    :param install_cond_temp: list of conductor temperatures for each cable
-    :param install_sheath_temp: list of sheath temperatures for each cable
-    :param install_duct_air_temp: list of average duct air temperature (°C)
-    :param old_install_current: list of currents in the cable conductor for each cable set
-    :param selected_scenario_name: the selected scenario
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state:
-    :param log:
-    :return:
-    """
-
-    cable_set_current = []
-    cable_set = install.cable_sets[cable_set_no]
-    for placed_cable_no, placed_cable in enumerate(cable_set.placed_cables):
-        kind = install.kind.get_value(unit='', log=log)
-        if kind == iec.BURIED:
-            delta_theta_p = iec60287_2_1.calc_delta_theta_p(install, cable_set_no, placed_cable_no,
-                                                            install_cond_temp,
-                                                            old_install_current,
-                                                            u_pe_list=u_pe_list,
-                                                            state=state, log=log).value
-        else:
-            delta_theta_p = None
-        u_pe = None if u_pe_list is None else u_pe_list[cable_set_no][placed_cable_no]
-        ambient_temp = install.get_ambient_temperature(selected_scenario_name, cable_set_no, placed_cable_no, unit='°C')
-        i = iec60287_1_1.calc_i_4_2_1(install, cable_set_no, placed_cable_no,
-                                      ambient_temp,
-                                      cond_temp=install_cond_temp[cable_set_no][placed_cable_no],
-                                      sheath_temperature=install_sheath_temp[cable_set_no],
-                                      duct_air_temperature=install_duct_air_temp[cable_set_no],
-                                      delta_theta_p=delta_theta_p,
-                                      u_pe=u_pe,
-                                      state=state, log=log)
-        cable_set_current.append(i.value)
-
-    cable_set_rating = (min(cable_set_current) + old_install_current[cable_set_no])/2
-
-    if log is not None:
-        log.start_section('moderate I', 'calc current solver')
-        log.add_line('calculated I', min(cable_set_current), 'A', 'previously calculated')
-        log.add_line('old I', old_install_current[cable_set_no], 'A', 'previously calculated')
-        log.end_section('moderate I', cable_set_rating, 'A', 'calc current solver')
-
-    return QFloat(cable_set_rating, 'A', 'IEC 60287-1-1 clause 2.1',
-                  description='current rating of cable set', symbol='I')
-
-
-def calc_install_sheath_temp(install: AutoInstall, install_current: List[float], install_cond_temp: List[List[float]],
-                             u_pe_list: List[List[float]] = None,
-                             state: InstallState = None, log: Log = None):
-    """Calculate sheath temperatures (°C)
-
-    Calculates cable sheath temperatures for given cable set currents. As all cables in the same cable set are
-    assumed to be at the same temperature, the sheath temperatures will also be the same so the list of cable
-    sheath temperatures is only for each cable set.
-
-    :param install: installation
-    :param install_current: list of cable set currants
-    :param install_cond_temp: list of conductor temperatures
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state: object holding results
-    :param log: result logger
-    :return: list of sheath temperatures for each cable set (°C)
-    """
-
-    install_sheath_temp = [1000.0 for _cable_set in install.cable_sets]
-    for cable_set_no, cable_set in enumerate(install.cable_sets):
-        i = install_current[cable_set_no]
-        cond_temp = install_cond_temp[cable_set_no][0]
-        u_pe = None if u_pe_list is None else u_pe_list[cable_set_no][0]
-        install_sheath_temp[cable_set_no] = iec60287_1_1.calc_theta_sc(install, cable_set_no, 0, current=i,
-                                                                       conductor_temp=cond_temp,
-                                                                       u_pe=u_pe,
-                                                                       state=state, log=log).value
-    return install_sheath_temp
-
-
-def calc_install_duct_air_temp(install: AutoInstall, install_current: List[float], install_cond_temp: List[List[float]],
-                               install_sheath_temp: List[float],
-                               u_pe_list: List[List[float]] = None,
-                               state: InstallState = None, log: Log = None) -> List[float]:
-    """Calculate sheath temperatures (°C)
-
-    Calculates duct air temperatures for given cable set currents. As all cables in the same cable set are
-    assumed to be at the same temperature, the sheath temperatures will also be the same so the list of duct
-    air temperatures is only for each cable set.
-
-    :param install: installation
-    :param install_current: list of cable set currants
-    :param install_cond_temp: list of conductor temperatures (°C)
-    :param install_sheath_temp: list of sheath temperatures (°C)
-    :param u_pe_list: list of phase to earth voltages applied to cables (V)
-    :param state: object holding results
-    :param log: result logger
-    :return: list of duct air temperatures for each cable set (°C)
-    """
-
-    install_duct_air_temp = [1000.0 for _cable_set in install.cable_sets]
-    for cable_set_no, cable_set in enumerate(install.cable_sets):
-        i = install_current[cable_set_no]
-        cond_temp = install_cond_temp[cable_set_no][0]
-        sheath_temp = install_sheath_temp[cable_set_no]
-        u_pe = None if u_pe_list is None else u_pe_list[cable_set_no][0]
-        if cable_set.duct_layout.value == iec.NO_DUCTS:
-            install_duct_air_temp[cable_set_no] = 0.0
-        else:
-            install_duct_air_temp[cable_set_no] = iec60287_1_1.calc_theta_m(install, cable_set_no, 0, current=i,
-                                                                            conductor_temp=cond_temp,
-                                                                            sheath_temp=sheath_temp,
-                                                                            u_pe=u_pe,
-                                                                            state=state, log=log).value
-    return install_duct_air_temp

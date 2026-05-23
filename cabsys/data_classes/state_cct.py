@@ -1,5 +1,4 @@
-import typing
-from typing import List, Union
+from typing import List, Union, Optional
 
 from cabsys.data_classes.install import (CableSet, InstallCircuit, Install)
 from cabsys.quantity.log import Log
@@ -52,7 +51,7 @@ class CableState(State):
 class PlacedCableState(State):
     """Calculation results linked to CableDetails"""
 
-    cable_state: typing.Optional[CableState]
+    cable_state: CableState
 
     def __init__(self):
         super().__init__()
@@ -308,7 +307,8 @@ class UseState:
     with the new value calculated and the top of the calculation noted.
     """
 
-    def __init__(self, state_attr_name: Union[str, tuple], level: str = None, memorise: bool = None):
+    def __init__(self, state_attr_name: Union[str, tuple],
+                 level: Optional[str] = None, memorise: Optional[bool] = None):
         """Decorator that gets and stores attributes to and from a State object.
 
         The result of the function that is being decorated is stored in the state object specified in the function
@@ -363,13 +363,13 @@ class UseState:
                 # TODO: args may be: cable_set_no=0, cable_no=0 and this needs decoding
                 if isinstance(state, InstallState):
                     if isinstance(args[0], Install):
-                        circuit_num = args[1]
-                        cable_set_no = args[2]
-                        cable_no = args[3]
+                        circuit_num: int = args[1]
+                        cable_set_no: int = args[2]
+                        cable_no: int = args[3]
                     elif isinstance(args[1], Install):
-                        circuit_num = args[2]
-                        cable_set_no = args[3]
-                        cable_no = args[4]
+                        circuit_num: int = args[2]
+                        cable_set_no: int = args[3]
+                        cable_no: int = args[4]
                     else:
                         raise Exception('InstallState being used but could not find Install object in args')
                     if self.level == CABLE:
@@ -381,9 +381,9 @@ class UseState:
                     raise Exception('trying to use state decorator but InstallCircuitState being used not implemented')
                 elif isinstance(state, CableSetState):
                     if isinstance(args[0], CableSet):
-                        cable_no = args[1]
+                        cable_no: int = args[1]
                     elif isinstance(args[1], CableSet):
-                        cable_no = args[2]
+                        cable_no: int = args[2]
                     else:
                         raise Exception('CableSetState being used but could not find CableSet object in args')
                     if self.level == CABLE:
@@ -408,11 +408,11 @@ class UseState:
             elif self.level == CABLE_SET:
                 if isinstance(state, InstallState):
                     if isinstance(args[0], Install):
-                        circuit_num = args[1]
-                        cable_set_no = args[2]
+                        circuit_num: int = args[1]
+                        cable_set_no: int = args[2]
                     elif isinstance(args[1], Install):
-                        circuit_num = args[2]
-                        cable_set_no = args[3]
+                        circuit_num: int = args[2]
+                        cable_set_no: int = args[3]
                     else:
                         raise Exception('InstallState being used but could not find Install object in args')
                     active_state = state.install_circuit_states[circuit_num].cable_set_states[cable_set_no]
@@ -462,12 +462,16 @@ class UseState:
 
             if active_state is not None:
                 if isinstance(self.state_name, tuple):
+                    if isinstance(fn_result, QuantityBase):
+                        raise Exception(f'Trying to add {self.state_name} but value wrong type')
                     for state_num, state_name in enumerate(self.state_name):
                         active_state.set_quantity(state_name, fn_result[state_num].value, fn_result[state_num].unit,
                                                   source=fn_result[state_num].source,
                                                   description=fn_result[state_num].description)
                         active_state.__annotations__[state_name] = type(fn_result[state_num].value)
                 else:
+                    if isinstance(fn_result, tuple):
+                        raise Exception(f'Trying to add {self.state_name} but value wrong type')
                     active_state.set_quantity(self.state_name, fn_result.value, fn_result.unit, source=fn_result.source,
                                               description=fn_result.description)
                     active_state.__annotations__[self.state_name] = type(fn_result.value)
