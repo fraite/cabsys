@@ -6,6 +6,8 @@ Some of the equations have been modified. The logger notes where the changes hav
 """
 
 import math
+from typing import Optional
+
 from cabsys.quantity.log import Log, LogSection
 from cabsys.data_classes.cable import Cable
 from cabsys.quantity.quantity_store import QFloat
@@ -17,7 +19,7 @@ class IEC60949Exception(Exception):
     pass
 
 
-def calc_cond_short_cct(cable: Cable, theta_i=None, theta_f=None, log: Log = None) -> QFloat:
+def calc_cond_short_cct(cable: Cable, theta_i=None, theta_f=None, log: Optional[Log] = None) -> QFloat:
     """Calculate the conductor short circuit current rating
 
     The default initial conductor temperature (theta_i) is 90°C if a value is not given.
@@ -63,8 +65,9 @@ def calc_cond_short_cct(cable: Cable, theta_i=None, theta_f=None, log: Log = Non
                   description='conductor short circuit current rating', symbol="I_AD")
 
 
-def calc_sheath_short_cct(cable: Cable, foil_rt: float = None, theta_i: float = None, theta_f: float = None,
-                          log: Log = None) -> QFloat:
+def calc_sheath_short_cct(cable: Cable, foil_rt: Optional[float] = None, theta_i: Optional[float] = None,
+                          theta_f: Optional[float] = None,
+                          log: Optional[Log] = None) -> QFloat:
     """Calculate the metal sheath short circuit current rating
 
     The default initial sheath temperature is 80°C.
@@ -76,6 +79,14 @@ def calc_sheath_short_cct(cable: Cable, foil_rt: float = None, theta_i: float = 
     :param theta_f: maximum metal sheath short circuit temperature
     :return: conductor short circuit current rating
     """
+
+    if (cable.wire_screen.material.get_value(unit='', log=log) == iec.NONE and
+            cable.sheath.material.get_value(unit='', log=log) != iec.NONE and
+            cable.tape.material.get_value(unit='', log=log) == iec.NONE):
+        pass
+    else:
+        raise IEC60949Exception('Trying to calculate metal sheath/screen short circuit current rating but'
+                                ' only metal sheath implemented')
 
     # TODO: do this properly by referencing a table with up to date IEC references
     # Assign initial conductor temperature
@@ -99,7 +110,7 @@ def calc_sheath_short_cct(cable: Cable, foil_rt: float = None, theta_i: float = 
                 else:
                     theta_f = 160.0
             elif cable.serving.material.get_value(unit='', log=log) == iec.SERVING_PE:
-                if cable.sheath.thickness.get_value(unit='mm', log=log) >= foil_rt:
+                if cable.sheath.thickness.get_value2(unit='mm', log=log) >= foil_rt:
                     theta_f = 180.0
                 else:
                     theta_f = 150.0
@@ -120,7 +131,7 @@ def calc_sheath_short_cct(cable: Cable, foil_rt: float = None, theta_i: float = 
         beta = find_sheath_beta(cable).value
         # TODO: transfer area to a function of cable.sheath
         sheath_dia = cable.sheath.dia.get_value(unit='mm', log=log)
-        dia_under_sheath = cable.sheath.dia_under_sheath.get_value('mm', log=log)
+        dia_under_sheath = cable.sheath.dia_under_sheath.get_value2('mm', log=log)
         sheath_thickness = cable.sheath.thickness.get_value(unit='mm', log=log)
         s = (sheath_dia + dia_under_sheath) / 2 * sheath_thickness * math.pi
 
@@ -131,7 +142,7 @@ def calc_sheath_short_cct(cable: Cable, foil_rt: float = None, theta_i: float = 
 
 
 @LogSection('K')
-def find_cond_k(cable: Cable, log: Log = None) -> QFloat:
+def find_cond_k(cable: Cable, log: Optional[Log] = None) -> QFloat:
     """Get K for conductor from IEC 60949 Table 1
 
     :param cable: the cable
@@ -139,13 +150,19 @@ def find_cond_k(cable: Cable, log: Log = None) -> QFloat:
     :return: k: K value
     """
     cond_mat = cable.conductor.material.get_value(unit='', log=log)
-    k = IEC_60949_COND_CONSTS[cond_mat][0]
+    if cond_mat is None:
+        raise IEC60949Exception(f'trying to get IEC 60949 K value but conductor material is not defined')
+    try:
+        k = IEC_60949_COND_CONSTS[cond_mat][0]
+    except KeyError:
+        raise IEC60949Exception(f'trying to get IEC 60949 K value but conductor material "{cond_mat}" not found')
+
     return QFloat(k, '-', 'IEC 60949:2008 Table 1, K',
                   description='K value', symbol='K')
 
 
 @LogSection('β')
-def find_cond_beta(cable: Cable, log: Log = None) -> QFloat:
+def find_cond_beta(cable: Cable, log: Optional[Log] = None) -> QFloat:
     """Get beta for conductor from IEC 60949 Table 1
 
     :param cable: the cable
@@ -153,7 +170,12 @@ def find_cond_beta(cable: Cable, log: Log = None) -> QFloat:
     :return: beta: beta value
     """
     cond_mat = cable.conductor.material.get_value(unit='', log=log)
-    k = IEC_60949_COND_CONSTS[cond_mat][1]
+    if cond_mat is None:
+        raise IEC60949Exception(f'trying to get IEC 60949 β value but conductor material is not defined')
+    try:
+        k = IEC_60949_COND_CONSTS[cond_mat][1]
+    except KeyError:
+        raise IEC60949Exception(f'trying to get IEC 60949 β value but conductor material "{cond_mat}" not found')
     return QFloat(k, '-', 'IEC 60949:2008 Table 1, β',
                   description='beta value', symbol='beta')
 
@@ -164,7 +186,7 @@ IEC_60949_COND_CONSTS = {iec.COPPER: (226.0, 234.5, 3.45e6, 1.7241e-8),
                          iec.ALUMINIUM: (148.0, 228.0, 2.5e6, 2.8264e-8)}
 
 @LogSection('K')
-def find_sheath_k(cable: Cable, log: Log = None) -> QFloat:
+def find_sheath_k(cable: Cable, log: Optional[Log] = None) -> QFloat:
     """Get K for metal sheath from IEC 60949 Table 1
 
     :param cable: the cable
@@ -172,13 +194,18 @@ def find_sheath_k(cable: Cable, log: Log = None) -> QFloat:
     :return: k: K value
     """
     sheath_mat = cable.sheath.material.get_value(unit='', log=log)
-    k = IEC_60949_SHEATH_CONSTS[sheath_mat][0]
+    if sheath_mat is None:
+        raise IEC60949Exception(f'trying to get IEC 60949 K value but sheath material is not defined')
+    try:
+        k = IEC_60949_SHEATH_CONSTS[sheath_mat][0]
+    except KeyError:
+        raise IEC60949Exception(f'trying to get IEC 60949 K value but sheath material "{sheath_mat}" not found')
     return QFloat(k, '-', 'IEC 60949:2008 Table 1, K',
                   description='K value', symbol='K')
 
 
 @LogSection('β')
-def find_sheath_beta(cable: Cable, log: Log = None) -> QFloat:
+def find_sheath_beta(cable: Cable, log: Optional[Log] = None) -> QFloat:
     """Get beta for metal sheath from IEC 60949 Table 1
 
     :param cable: the cable
@@ -186,7 +213,12 @@ def find_sheath_beta(cable: Cable, log: Log = None) -> QFloat:
     :return: beta: beta value
     """
     sheath_mat = cable.sheath.material.get_value(unit='', log=log)
-    k = IEC_60949_SHEATH_CONSTS[sheath_mat][1]
+    if sheath_mat is None:
+        raise IEC60949Exception(f'trying to get IEC 60949 β value but sheath material is not defined')
+    try:
+        k = IEC_60949_SHEATH_CONSTS[sheath_mat][1]
+    except KeyError:
+        raise IEC60949Exception(f'trying to get IEC 60949 β value but sheath material "{sheath_mat}" not found')
     return QFloat(k, '-', 'IEC 60949:2008 Table 1, β',
                   description='beta value', symbol='beta')
 

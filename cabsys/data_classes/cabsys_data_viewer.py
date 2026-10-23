@@ -7,7 +7,7 @@ from cabsys.data_classes.project import Project
 from cabsys.data_classes.cable import Cable
 from cabsys.data_classes.install import Install
 from cabsys.data_classes.auto_install import AutoInstall
-from cabsys.data_classes.auto_cable import AutoCable
+from cabsys.data_classes.auto_cable import AutoCable, DesignCableException
 from cabsys.data_classes.scenario import Scenario
 from cabsys.data_classes.auto_scenario import AutoScenario
 from cabsys.data_classes.auto_circuit import AutoCircuit
@@ -15,6 +15,7 @@ from cabsys.data_classes.section import Section
 from cabsys.data_classes.node import Node
 from cabsys.data_classes.circuit import Circuit
 from cabsys.data_classes.state import InstallState
+from cabsys.data_classes.state_cct import InstallState as InstallStateCCT
 from cabsys.data_classes.auto_current_curve import AutoCurrentCurve
 from cabsys.data_classes.current_curve import CurrentCurve
 from cabsys.quantity.quantity_store import QuantityBase
@@ -69,7 +70,7 @@ class CabSysDataFrame(quant_store_viewer.QuantFrame):
 
         super().update_viewer()
 
-        if isinstance(self.instance, (Project, Cable, Install, InstallState, Scenario,
+        if isinstance(self.instance, (Project, Cable, Install, InstallState, InstallStateCCT, Scenario,
                                       Section, Node, Circuit, CurrentCurve)):
             try:
                 if self.is_auto_design and isinstance(self.instance, (AutoCable, AutoCurrentCurve,
@@ -78,6 +79,9 @@ class CabSysDataFrame(quant_store_viewer.QuantFrame):
                         self.instance.auto_design(proj_scenarios=self.scenarios)
                     else:
                         self.instance.auto_design()
+            except DesignCableException:
+                # If cable design fails, the design is still safe to display so can ignore Exception
+                pass
             finally:
                 self.attr_frame_update(self.chosen_instance_in_tree)
         else:

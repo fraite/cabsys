@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from cabsys.gui.overview_widgets import EntryInt, ComboboxBool, ComboboxString
 
-from cabsys.data_classes.auto_cable import AutoCable
+from cabsys.data_classes.auto_cable import AutoCable, DesignCableException
 from cabsys.data_classes.cable import Cable
 import cabsys.iec.iec_constants as iec
 import cabsys.data_classes.cable_constants as cc
@@ -17,7 +17,11 @@ class CableOverviewFrame(tkinter.Frame):
     def __init__(self, cable: Cable, foil_rt: float = None, **kw):
         self.cable = cable
         if isinstance(cable, AutoCable):
-            cable.auto_design()
+            try:
+                cable.auto_design()
+            except DesignCableException:
+                # If cable design fails, the design is still safe to display so can ignore Exception
+                pass
         super().__init__(**kw)
 
         self.rowconfigure(0, minsize="0", weight=0, pad="0")

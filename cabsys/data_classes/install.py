@@ -80,7 +80,7 @@ class PlacedCable(InstallBase):
         if self.phase.source in sources:
             self.phase.value = None
         if self.u_pe.source in sources:
-            self.phase.value = None
+            self.u_pe.value = None
         if self.ambient_theta.source in sources:
             self.ambient_theta.value = None
 
@@ -114,6 +114,7 @@ class CableSet(InstallBase):
     preload_type: QStr
     preload_current: QFloat
     f: QFloat
+    # TODO: rename cct_type to cable_set_type
     cct_type: QStr
     scenarios: Dict[str, ScenarioRating]
     placed_cables: List[PlacedCable]
@@ -286,7 +287,7 @@ class CableSet(InstallBase):
         return QInt(n_d, '', 'number of cables in duct',
                     description='number of cables in duct', symbol='n_d')
 
-    def calc_formation_spacing(self, log: Log = None) -> (str, float, str, str, str):
+    def calc_formation_spacing(self, log: Log = None) -> None | tuple[str, float, str, str, str]:
         """Calculate the formation and spacing of the CableSet
     
         The formation is determined by checking if spacings between cables are consistent with the formation,
@@ -470,6 +471,58 @@ class CableSet(InstallBase):
             if log is not None:
                 log.end_section('formation/spacing', result, '-, mm, -, -, -', 'support function: formation & spacing')
             return result
+
+        else:
+            raise Exception(f'trying to calculate spacing but number of cables {no_cables} greater than 3')
+
+
+class InstallCircuit(InstallBase):
+    """A group of cable sets that forms a circuit.
+
+    A group of cable sets that forms a circuit, for example 2 cables per phase would have 2 cable sets"""
+
+    auto_number_sets: QInt
+    auto_spacing: QFloat
+    cable_sets: List[CableSet]
+    circuit: typing.Optional[Circuit]
+    desired_I: QFloat
+    desired_I_change: QBool
+    current_curve: typing.Optional[CurrentCurve]
+    preload_type: QStr
+    preload_current: QFloat
+    f: QFloat
+    # cct_type: QStr
+    scenarios: Dict[str, ScenarioRating]
+    num_phases: QStr
+    auto_voltage: QFloat
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.circuit = None
+        self.auto_number_sets = QInt(None, unit='', description='number of cable sets',
+                                     source=None, options=None, symbol='auto_number_sets')
+        self.auto_spacing = QFloat(None, unit='mm', description='set spacing used by auto design', source=None,
+                                   options=None, symbol='auto_spacing')
+        self.cable_sets = []
+        self.desired_I = QFloat(None, unit='A', description='desired current rating', source=None, options=None,
+                                symbol='desired_I')
+        self.desired_I_change = QBool(None, unit='', description='allow desired rating to change', source=None,
+                                      options=None, symbol='desired_I_change')
+        self.current_curve = None
+        self.preload_type = QStr(None, unit='', description='type of preload',
+                                 source=None, options=iec.PRELOAD_TYPES, symbol='preload type')
+        self.preload_current = QFloat(None, unit='A', description='load current prior to transient',
+                                      source=None, options=None, symbol='I_pl')
+        self.f = QFloat(None, unit='Hz', description='frequency', source=None, options=[50.0, 60.0], symbol='f')
+        # self.cct_type = QStr(None, unit='', description='number of cables and number of cores', source=None,
+        #                      options=list(iec.CABLE_SET_TYPE_TABLE.keys()), symbol='circuit type')
+        self.scenarios = {}
+        self.num_phases = QStr(None, unit='', description='number of phases',
+                               source=None, options=iec.PHASES_POLES, symbol='num_phases')
+        self.auto_voltage = QFloat(None, unit='kV', description='phase to phase voltage', source=None,
+                                   options=list(iec.IEC_NOM_TO_U0_VOLTAGE.keys()), symbol='U')
+
+        super().post_init(**kwargs)
 
 
 class Elt87Config(QuantityStore):
@@ -730,6 +783,9 @@ class Install(InstallBase):
     auto_number_sets: QInt
     auto_spacing: QFloat
     cable_sets: List[CableSet]
+    auto_number_circuits: QInt
+    auto_circuit_spacing: QFloat
+    install_circuits = List[InstallCircuit]
     scenarios: Dict[str, Scenario]
 
     def __init__(self, **kwargs):
@@ -762,11 +818,16 @@ class Install(InstallBase):
                                       source=None, options=None, symbol='σ_T')
         self.ground_thermal_diffusivity = QFloat(None, unit='m²/s', description='ground diffusivity',
                                                  source=None, options=None, symbol='δ_T')
-        self.auto_number_sets = QInt(None, unit='mm', description='number of cable sets',
+        self.auto_number_sets = QInt(None, unit='', description='number of cable sets',
                                      source=None, options=None, symbol='auto_number_sets')
         self.auto_spacing = QFloat(None, unit='mm', description='set spacing used by auto design', source=None,
                                    options=None, symbol='auto_spacing')
         self.cable_sets = []
+        self.auto_number_circuits = QInt(None, unit='', description='number of circuits',
+                                     source=None, options=None, symbol='auto_number_circuits')
+        self.auto_circuit_spacing = QFloat(None, unit='mm', description='circuit spacing used by auto design',
+                                           source=None, options=None, symbol='auto_circuit_spacing')
+        self.install_circuits = []
         self.scenarios = {}
         self.selected_scenario = QStr(None, unit='', description='selected scenario',
                                       source=None, options=None, symbol='auto_scenario')
@@ -831,7 +892,7 @@ class Install(InstallBase):
         s = s + '</InstallPack>'
         return s
 
-    def find_extents(self) -> (float, float, float, float):
+    def find_extents(self) -> tuple[float, float, float, float]:
         """Find the extent of the installation (mm)
 
         Finds the minimum x, minimum y, maximum x and maximum y extent of all cables in the installation taking account
@@ -961,8 +1022,61 @@ class Install(InstallBase):
                                 unit: str = None,
                                 log: Log = None) -> float:
         q_ambient_temperature = self.get_q_ambient_temperature(selected_scenario_name, cable_set_no, cable_no)
-        ambient_temperature = q_ambient_temperature.get_value(unit, log)
+        ambient_temperature = q_ambient_temperature.get_value2(unit, log)
         return ambient_temperature
+
+
+    # ambient temperature
+    def get_q_ambient_temperature_cct(self, selected_scenario_name: str,
+                                      circuit_num: int = None, cable_set_no: int = None, cable_no: int = None) -> QFloat:
+        """Ambient temperature of the installation for the given scenario
+
+        The ambient temperature of the installation is returned as a quantity for the specified scenario.
+
+        The ambient temperature give will be given in the following priority order:
+          * if a cable set number and cable number is given and an ambient temperature is specified in the base
+            installation, the ambient temperature specified in the placed cable this quantity,
+          * if the scenario does not exist in the installation the base ambient temperature for the installation,
+          * the ambient temperature in the installation scenario.
+
+        :param selected_scenario_name:
+        :param circuit_num:
+        :param cable_set_no:
+        :param cable_no:
+        :return:
+        """
+        if circuit_num is not None and cable_set_no is not None and cable_no is not None:
+            install_circuit = self.install_circuits[circuit_num]
+            cable_set = install_circuit.cable_sets[cable_set_no]
+            placed_cable = cable_set.placed_cables[cable_no]
+            q_ambient_temperature = placed_cable.ambient_theta
+            ambient_temperature = q_ambient_temperature.value
+        else:
+            q_ambient_temperature = None  # this line is not needed but linter required this
+            ambient_temperature = None
+        if ambient_temperature is None:
+            if selected_scenario_name not in self.scenarios.keys():
+                q_ambient_temperature = self.ambient_theta
+            elif self.kind.value == iec.IN_AIR_EXPOSED or self.kind.value == iec.IN_AIR_PROTECTED:
+                q_ambient_temperature = self.scenarios[self.selected_scenario.value].in_air.ambient_theta
+            elif self.kind.value == iec.BURIED:
+                q_ambient_temperature = self.scenarios[self.selected_scenario.value].buried.ambient_theta
+            elif self.kind.value == iec.TUNNEL:
+                q_ambient_temperature = self.scenarios[self.selected_scenario.value].tunnel.ambient_theta
+            else:
+                raise Exception(f'trying to get ambient temperature but installation kind "{self.kind.value}" '
+                                f'not recognised')
+        return q_ambient_temperature
+
+    def get_ambient_temperature_cct(self, selected_scenario_name: str,
+                                    circuit_num: int, cable_set_no: int, cable_no: int,
+                                    unit: str = None,
+                                    log: Log = None) -> float:
+        q_ambient_temperature = self.get_q_ambient_temperature_cct(selected_scenario_name,
+                                                                   circuit_num, cable_set_no, cable_no)
+        ambient_temperature = q_ambient_temperature.get_value2(unit, log)
+        return ambient_temperature
+
 
     # ground thermal resistance
 

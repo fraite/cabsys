@@ -848,7 +848,7 @@ def find_alpha20_sheath(material: str, log: Log = None) -> QFloat:
                   description='dc coefficient of resistance at 20°C', symbol='α₂₀_sheath')
 
 
-def calc_cable_formation(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None) -> str:
+def calc_cable_formation(cable_set: cabsys.CableSet, log: cabsys.Log = None) -> str:
     """Calculate the formation of the CableSet
 
     Returns either:
@@ -868,7 +868,7 @@ def calc_cable_formation(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None)
     return result
 
 
-def calc_cable_spacing(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None) -> float:
+def calc_cable_spacing(cable_set: cabsys.CableSet, log: cabsys.Log = None) -> float:
     """Calculate the cable spacing of the CableSet
 
     Returned value is axial spacing between cables. For 3 cables in a cableset if the cables are in flat formation but
@@ -889,7 +889,7 @@ def calc_cable_spacing(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None) -
 
 
 @LogSection('centre cable')
-def calc_centre_cable(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None) -> QInt:
+def calc_centre_cable(cable_set: cabsys.CableSet, log: cabsys.Log = None) -> QInt:
     """Calculate the centre cable in the CableSet
 
     Finds the centre cable in a cable set and returns the index number of the centre cable, or the cable nearest the
@@ -937,9 +937,9 @@ def calc_centre_cable(cable_set: cabsys.AutoCableSet, log: cabsys.Log = None) ->
     return QInt(found_index, '', 'IEC60287 support function', description='centre cable index', symbol='centre cable')
 
 
-@UseState('phase', level=CABLE)
+# @UseState('phase', level=CABLE)
 @LogSection('cable phase wrt centre')
-def calc_cable_phase_wrt_centre(cable_set: cabsys.AutoCableSet, cable_no: int, state: CableSetState = None,
+def calc_cable_phase_wrt_centre(cable_set: cabsys.CableSet, cable_no: int, state: CableSetState = None,
                                 log: cabsys.Log = None) -> QStr:
     """Calculate the cable phase with respect to the centre cable
 

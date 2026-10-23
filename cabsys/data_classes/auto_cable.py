@@ -305,6 +305,7 @@ class AutoCable(Cable):
             else:
                 self.conductor.size.set_value(iec.IEC_300MM2, unit='', source=CABLE_AUTO_DESIGN)
         elif self.conductor.size.value not in cc.CONDUCTOR_TABLE[self.core.insulation_material.value][cores].keys():
+            # TODO: remove this elif block and raise the DesignCableException when the conductor diameter not found
             self.set_auto_design_status(f'{self.name}: conductor size not found for insulation material')
             raise DesignCableException(self.get_auto_design_status())
 

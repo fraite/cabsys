@@ -23,17 +23,18 @@ from typing import Optional, List, Tuple
 from datetime import date
 import cabsys.top.cabsys_constants as cabsys_consts
 # from cabsys.data_classes.data_store import QStr
-from cabsys.quantity.log import Log
+from cabsys.quantity.log import Log, no_log
 from cabsys.data_classes.auto_install import AutoInstall  # , CableSet, CableSetState
 from cabsys import InstallState
 import cabsys.iec.iec_constants as iec
 import cabsys.cigre.electra087wrapper as elt087
 import cabsys.iec.iec_solver as iec_solver
+import cabsys.iec.iec_solver_cct as iec_solver_cct
 from cabsys.top.Exception import InvalidInput
 
 
 def solve(install: AutoInstall, selected_scenario_name: str = None, state: InstallState = None,
-          log: Log = None) -> [str, Optional[List[List[float]]], Optional[List[float]],
+          log: Log = no_log) -> [str, Optional[List[List[float]]], Optional[List[float]],
                                Optional[List[List[List[Tuple[float, List]]]]]]:
     """Calculate the current rating of an installation
 
@@ -73,8 +74,14 @@ def solve(install: AutoInstall, selected_scenario_name: str = None, state: Insta
                                                                                         selected_scenario_name,
                                                                                         state=state, log=log)
             transient_result = None
+        elif solver == iec.CALC_TEMPERATURE_CCT_CIRCUIT or solver == iec.CALC_TEMPERATURE_CCT_INSTALL:
+            current_str, cond_thetas, cond_amps = iec_solver_cct.solve_calc_temperature_new(install,
+                                                                                            selected_scenario_name,
+                                                                                            state=state, log=log)
+            transient_result = None
         else:
             raise InvalidInput(f'continuous rating solver "{solver}" not recognised', 'solver-62')
+
     elif rating_type in [iec.RATING_EMERGENCY, iec.RATING_CYCLIC, iec.RATING_TRANSIENT]:
         # TODO: update for scenarios
         current_str, max_cond_temp, transient_result = elt087.solve_calc_temperature(install, state=state, log=log)

@@ -1,6 +1,6 @@
 import tkinter
 from tkinter import ttk
-from typing import Union
+from typing import Union, Optional
 
 
 
@@ -33,6 +33,8 @@ class ResultFrame(tkinter.Frame):
     def add_result(self, result: str):
         self.result_tb.insert(tkinter.END, result)
 
-    def new_result(self, result: str):
+    def new_result(self, result: Optional[str]):
+        if result is None:
+            result = ''
         self.result_tb.delete('1.0', tkinter.END)
         self.result_tb.insert(tkinter.END, result)

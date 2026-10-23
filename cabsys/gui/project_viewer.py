@@ -1,3 +1,4 @@
+import math
 import csv
 import tkinter
 from typing import Union, Optional, cast
@@ -20,9 +21,10 @@ from cabsys.data_classes.project import Project, loads_project
 from cabsys.data_classes.scenario import Scenario
 from cabsys.data_classes.auto_scenario import AutoScenario
 from cabsys.data_classes.install import Install
-from cabsys.data_classes.auto_install import AutoInstall, AutoCableSet, loads_install_sec
+from cabsys.data_classes.auto_install import AutoInstall, AutoCableSet, loads_install_sec, AutoInstallCircuit
 from cabsys.data_classes.auto_install import DesignInstallException, DesignCableSetException
 from cabsys.data_classes.state import InstallState
+from cabsys.data_classes.state_cct import InstallState as InstallStateCCT
 from cabsys.quantity.log import Log
 from cabsys.data_classes.cable import Cable
 from cabsys.data_classes.auto_cable import AutoCable, DesignCableException
@@ -46,6 +48,7 @@ from cabsys.quantity import quantity_constants as qc
 from cabsys.quantity.quantity_store_viewer import QuantityCombobox
 import cabsys.iec.iec_constants as iec
 from cabsys.iec.details import results as iec_details
+from cabsys.iec.details_cct import results as iec_details_cct
 
 # TODO: implement mirrored layout
 # TODO: implement circuit level data structure
@@ -770,12 +773,12 @@ class ProjectViewer:
         self.show_displayed_object()
 
     def new_auto_install(self):
-        new_cable_set = AutoCableSet()
         if self.cable_tree.focus() == '':
             cable_name = self.new_auto_cable()
             # self.ignore_cable_select_counter = self.ignore_cable_select_counter + 1
         else:
             cable_name = self.cable_tree.focus()
+        new_cable_set = AutoCableSet()
         new_cable_set.auto_cable = self.project.cables[cable_name]
         new_cable_set.auto_cable_source = 'new install'
         new_cable_set.auto_follow_set = QBool(False)
@@ -783,10 +786,21 @@ class ProjectViewer:
         #     scenario_name = self.add_scenario()
         # else:
         #     scenario_name = self.scenario_tree.focus()
+
+        new_install_cable_set = AutoCableSet()
+        new_install_cable_set.auto_cable = self.project.cables[cable_name]
+        new_install_cable_set.auto_cable_source = 'new install'
+        new_install_circuit = AutoInstallCircuit()
+        new_install_circuit.auto_number_sets.set_value(1, source=None)
+        new_install_circuit.cable_sets.append(new_install_cable_set)
+
         new_install = AutoInstall()
         new_install.auto_number_sets.set_value(1, source=None)
         new_install.cable_sets.append(new_cable_set)
         # new_install.scenarios[scenario_name] = self.project.scenarios[scenario_name]
+        new_install.auto_number_circuits.set_value(1, source=None)
+        new_install.install_circuits.append(new_install_circuit)
+
         new_install.set_auto_design(True)
         self.add_install(new_install)
 
@@ -1651,7 +1665,11 @@ class ProjectViewer:
         if isinstance(self.displayed_object, Install):
             self.install_draw_frame.draw(cond_thetas_list=self.cond_thetas_list,
                                          amp_list=self.amp_list)
-            self.install_state = InstallState(self.displayed_object)
+            # TODO: remove InstallState once InstallStateCCT works properly
+            if self.displayed_object.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT, iec.CALC_TEMPERATURE_CCT_INSTALL]:
+                self.install_state = InstallStateCCT(self.displayed_object)
+            else:
+                self.install_state = InstallState(self.displayed_object)
             # print(self.displayed_object.auto_ambient_theta.value)
             if self.displayed_object.config.auto_calc.value:
                 self.rate()
@@ -1742,8 +1760,13 @@ class ProjectViewer:
                 self.after_job = self.root.after(1000, lambda: self.main_thread_loop())
                 self.dlg.wait_window()
 
-                if not self.result_error:
-                    iec_details(dis_install, self.install_state, log)
+                if not self.result_error and dis_install.rating_type.value == iec.RATING_CONTINUOUS:
+                    if dis_install.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                      iec.CALC_TEMPERATURE_CCT_INSTALL]:
+                        iec_details_cct(dis_install, self.install_state, log)
+                        # pass
+                    else:
+                        iec_details(dis_install, self.install_state, log)
 
                 self.status_label.config(text='updating display')
                 self.root.update()
@@ -1777,10 +1800,36 @@ class ProjectViewer:
                 else:
                     self.status_label.config(text="Calculation successful")
 
-                    if self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS:
+                    if (self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS and
+                        dis_install.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                       iec.CALC_TEMPERATURE_CCT_INSTALL]):
+                        table_result = 'Circuit:  '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            table_result += f'  cct {circuit_num:>2} '
+                        table_result += '\n'
+
+                        table_result += 'θ_C (°C): '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            max_cond_theta: float = -math.inf
+                            for cable_set_num, cable_set in enumerate(install_circuit.cable_sets):
+                                set_cond_thetas = self.cond_thetas_list[circuit_num][cable_set_num]
+                                set_max_cond_theta = max(set_cond_thetas)
+                                max_cond_theta = max(set_max_cond_theta, max_cond_theta)
+                            table_result += f'  {round(max_cond_theta, 1): 3.2f} '
+                        table_result += '\n'
+
+                        table_result += 'I (A):   '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            circuit_amp = self.amp_list[circuit_num]
+                            table_result += f' {round(circuit_amp, 1): 4.1f} '
+                        table_result += '\n'
+
+                    elif (self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS and
+                        dis_install.config.solver_continuous.value not in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                           iec.CALC_TEMPERATURE_CCT_INSTALL]):
                         table_result = 'Circuit:  '
                         for i_cct in range(len(self.cond_thetas_list)):
-                            table_result += f'  cct {i_cct: 2.0f} '
+                            table_result += f'  cct {i_cct:>2} '
                         table_result += '\n'
                         table_result += 'θ_C (°C): '
                         for i_cct in range(len(self.cond_thetas_list)):
