@@ -73,7 +73,7 @@ class LogViewer(ttk.Frame):
         branch = ''
 
         # view results in tree view
-        if log.required_log_level < 10:
+        if log.required_log_level < 0:
             self.log_tree.insert(branch, 'end', text='install.required_log_level',
                                  values=(log.required_log_level, 'N/A', 'no log output as < 10'))
         else:

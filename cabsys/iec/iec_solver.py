@@ -375,7 +375,7 @@ def solve_calc_temperature(install: AutoInstall,
     """
 
     if log is not None:
-        log.start_section('current, temperature', source=f'solve_calc_temperature')
+        log.start_section('current, temperature', source=f'solve_calc_temperature', section_log_level=30)
 
     if cable_set_currents is None:
         cable_set_currents_change = [cable_set.desired_I_change.value for cable_set in install.cable_sets]

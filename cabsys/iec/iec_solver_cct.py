@@ -122,7 +122,7 @@ def solve_calc_temperature_new(install: AutoInstall,
     if log is None:
         log = no_log
 
-    log.start_section('current, temperature', source=f'solve_calc_temperature')
+    log.start_section('current, temperature', source=f'solve_calc_temperature', section_log_level=30)
     log.add_line('max_cond_resistance', install.config.max_cond_theta.value, unit='',
                  source=f'IEC 60287-1-1 Section 5.1.1')
     log.add_line('amp_accuracy', install.config.amp_accuracy.value, unit='A',
@@ -209,7 +209,6 @@ def solve_calc_temperature_new(install: AutoInstall,
         install_circuit_amps.append(circuit_amp_estimate)
         log.end_section(f'I circuit={install_circuit_num}', circuit_amp_estimate, unit="A",
                         source='iec_solver.calculate_temperature')
-    # create current_str
     current_str = create_result_string(install, install_cable_cond_thetas, install_circuit_amps=install_circuit_amps)
     log.end_section('initial θ and circuit I', current_str, '°C, A',  source=f'solve_calc_temperature')
 
@@ -251,13 +250,19 @@ def solve_calc_temperature_new(install: AutoInstall,
                                                                                  u_pe_list,
                                                                                  state, log)
 
-    # create current_str
     current_str = create_result_string(install, install_cable_cond_thetas, install_cable_amps)
     log.end_section('current, temperature', current_str, '', source=f'solve_calc_temperature')
 
     if log is not None:
         log.add_line('number of iterations', iteration, '', '')
         log.add_line('time taken', time_taken, 's', '')
+
+    install_circuit_amps = []
+    for circuit_num, install_circuit in enumerate(install.install_circuits):
+        circuit_amp = 0.0
+        for cable_set_num, cable_set in enumerate(install_circuit.cable_sets):
+            circuit_amp = circuit_amp + install_cable_amps[circuit_num][cable_set_num][0]
+        install_circuit_amps.append(circuit_amp)
 
     return current_str, install_cable_cond_thetas, install_circuit_amps
 

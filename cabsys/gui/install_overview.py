@@ -13,7 +13,7 @@ from cabsys.data_classes.circuit import Circuit
 from cabsys.data_classes.cable import Cable
 from cabsys.data_classes.current_curve import CurrentCurve
 from cabsys.data_classes.auto_install import AutoInstall
-from cabsys.data_classes.auto_cable import AutoCable
+from cabsys.data_classes.auto_cable import AutoCable, DesignCableException
 from cabsys.data_classes.scenario import Scenario
 # from cabsys.data_classes.scenario import Scenario
 import cabsys.iec.iec_constants as iec
@@ -821,7 +821,11 @@ class CableSetFrame(tkinter.Frame):
 
     def q_change(self, _event):
         if isinstance(self.cable_set.auto_cable, AutoCable):
-            self.cable_set.auto_cable.auto_design()
+            try:
+                self.cable_set.auto_cable.auto_design()
+            except DesignCableException:
+                # If cable design fails, the design is still safe to display so can ignore Exception
+                pass
         self.event_generate("<<Q_change>>", when="tail")
 
 

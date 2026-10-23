@@ -1,3 +1,4 @@
+import math
 import csv
 import tkinter
 from typing import Union, Optional, cast
@@ -47,6 +48,7 @@ from cabsys.quantity import quantity_constants as qc
 from cabsys.quantity.quantity_store_viewer import QuantityCombobox
 import cabsys.iec.iec_constants as iec
 from cabsys.iec.details import results as iec_details
+from cabsys.iec.details_cct import results as iec_details_cct
 
 # TODO: implement mirrored layout
 # TODO: implement circuit level data structure
@@ -1761,7 +1763,8 @@ class ProjectViewer:
                 if not self.result_error and dis_install.rating_type.value == iec.RATING_CONTINUOUS:
                     if dis_install.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
                                                                       iec.CALC_TEMPERATURE_CCT_INSTALL]:
-                        pass
+                        iec_details_cct(dis_install, self.install_state, log)
+                        # pass
                     else:
                         iec_details(dis_install, self.install_state, log)
 
@@ -1798,10 +1801,35 @@ class ProjectViewer:
                     self.status_label.config(text="Calculation successful")
 
                     if (self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS and
-                        dis_install.config.solver_continuous.value not in [iec.CALC_TEMPERATURE_CCT_CIRCUIT, iec.CALC_TEMPERATURE_CCT_INSTALL]):
+                        dis_install.config.solver_continuous.value in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                       iec.CALC_TEMPERATURE_CCT_INSTALL]):
+                        table_result = 'Circuit:  '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            table_result += f'  cct {circuit_num:>2} '
+                        table_result += '\n'
+
+                        table_result += 'θ_C (°C): '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            max_cond_theta: float = -math.inf
+                            for cable_set_num, cable_set in enumerate(install_circuit.cable_sets):
+                                set_cond_thetas = self.cond_thetas_list[circuit_num][cable_set_num]
+                                set_max_cond_theta = max(set_cond_thetas)
+                                max_cond_theta = max(set_max_cond_theta, max_cond_theta)
+                            table_result += f'  {round(max_cond_theta, 1): 3.2f} '
+                        table_result += '\n'
+
+                        table_result += 'I (A):   '
+                        for circuit_num, install_circuit in enumerate(self.displayed_object.install_circuits):
+                            circuit_amp = self.amp_list[circuit_num]
+                            table_result += f' {round(circuit_amp, 1): 4.1f} '
+                        table_result += '\n'
+
+                    elif (self.displayed_object.rating_type.value == iec.RATING_CONTINUOUS and
+                        dis_install.config.solver_continuous.value not in [iec.CALC_TEMPERATURE_CCT_CIRCUIT,
+                                                                           iec.CALC_TEMPERATURE_CCT_INSTALL]):
                         table_result = 'Circuit:  '
                         for i_cct in range(len(self.cond_thetas_list)):
-                            table_result += f'  cct {i_cct: 2.0f} '
+                            table_result += f'  cct {i_cct:>2} '
                         table_result += '\n'
                         table_result += 'θ_C (°C): '
                         for i_cct in range(len(self.cond_thetas_list)):
